@@ -1,0 +1,17 @@
+{
+  "name": "hotspot",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "test-db": "node test-db-connection.js",
+    "verify": "node verify-setup.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.90.1",
+    "astro": "^5.16.11"
+  }
+}

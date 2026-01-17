@@ -1,0 +1,39 @@
+---
+import DataDisplay from '../components/DataDisplay.astro'
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Hotspot - Astro + Supabase</title>
+	</head>
+	<body>
+		<main>
+			<h1>Hotspot</h1>
+			<p>Astro project with Supabase integration</p>
+			<DataDisplay apiUrl="/api/test-connection" />
+		</main>
+	</body>
+</html>
+
+<style>
+	main {
+		padding: 2rem;
+		max-width: 1200px;
+		margin: 0 auto;
+	}
+
+	h1 {
+		text-align: center;
+		color: #1f2937;
+		margin-bottom: 0.5rem;
+	}
+
+	p {
+		text-align: center;
+		color: #6b7280;
+	}
+</style>
