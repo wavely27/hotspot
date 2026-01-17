@@ -1,0 +1,3 @@
+# hotspot
+
+Project initialized.
