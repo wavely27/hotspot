@@ -9,6 +9,7 @@ interface DailyReport {
   id: string
   report_date: string
   content: string
+  summary?: string
   created_at: string
 }
 
@@ -45,15 +46,6 @@ function extractStats(content: string): { totalCount: number; sourceCount: numbe
     }
   }
   return { totalCount: 0, sourceCount: 0 }
-}
-
-// 从内容中提取信息源列表
-function extractSources(content: string): string[] {
-  const sourceMatches = content.match(/^## (.+)$/gm)
-  if (sourceMatches) {
-    return sourceMatches.map(s => s.replace('## ', ''))
-  }
-  return []
 }
 
 // 格式化日期
@@ -113,11 +105,10 @@ function formatShortDate(dateStr: string): string {
                   {stats.sourceCount} 个来源
                 </span>
               </div>
-              <div class="report-sources">
-                {sources.slice(0, 4).map(source => (
-                  <span class="source-tag">{source}</span>
-                ))}
-              </div>
+              
+              {report.summary && (
+                <p class="report-summary">{report.summary}</p>
+              )}
             </div>
             <div class="report-arrow">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -238,18 +229,15 @@ function formatShortDate(dateStr: string): string {
     color: #9ca3af;
   }
 
-  .report-sources {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .source-tag {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.625rem;
-    background: #f3f4f6;
+  .report-summary {
+    margin: 0;
+    font-size: 0.875rem;
     color: #4b5563;
-    border-radius: 9999px;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .report-arrow {

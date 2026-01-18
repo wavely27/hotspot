@@ -155,19 +155,29 @@ FILTER_PROMPT = """你是一个 AI 技术热点筛选助手。请从以下文章
 文章列表：
 {articles}
 
-请以 JSON 格式返回结果，格式如下：
+请以 JSON 格式返回结果，**所有文本内容必须翻译成中文**，格式如下：
 ```json
 {{
   "selected": [
     {{
       "index": 0,
-      "reason": "简短说明为什么选择这篇文章（20字以内）"
+      "title_cn": "中文标题",
+      "reason_cn": "中文推荐理由（作为该资讯的简短总结，50字以内）"
     }}
   ]
 }}
 ```
 
 只返回 JSON，不要其他内容。index 是文章在列表中的索引（从 0 开始）。
+"""
+
+SUMMARY_PROMPT = """请根据以下今日 AI 热点新闻的标题和推荐理由，写一段约 50 字的简短日报综述。
+综述应点出今天最值得关注的 1-3 个核心热点事件。
+
+热点列表：
+{content}
+
+请直接返回综述文本，不要加任何前缀或格式。
 """
 
 
@@ -177,15 +187,7 @@ def filter_items_with_gemini(
     limit: int = MAX_ITEMS_PER_SOURCE
 ) -> list[dict]:
     """
-    使用 Gemini 筛选最相关的文章
-    
-    Args:
-        model: Gemini 模型实例
-        items: 原始文章列表
-        limit: 最多返回的文章数
-    
-    Returns:
-        筛选后的文章列表，每篇文章增加 ai_reason 字段
+    使用 Gemini 筛选最相关的文章，并生成中文标题和理由
     """
     if not items:
         return []
@@ -210,22 +212,53 @@ def filter_items_with_gemini(
             return items[:limit]
         
         result = json.loads(json_match.group())
-        selected_indices = [item["index"] for item in result.get("selected", [])]
-        reasons = {item["index"]: item.get("reason", "") for item in result.get("selected", [])}
         
-        # 根据索引提取文章
+        selected_map = {item["index"]: item for item in result.get("selected", [])}
+        selected_indices = [item["index"] for item in result.get("selected", [])]
+        
+        # 根据索引提取文章并更新为中文信息
         filtered = []
         for idx in selected_indices:
             if 0 <= idx < len(items):
                 item = items[idx].copy()
-                item["ai_reason"] = reasons.get(idx, "")
+                gemini_data = selected_map.get(idx, {})
+                
+                # 使用中文信息覆盖或新增字段
+                if gemini_data.get("title_cn"):
+                    item["title"] = gemini_data["title_cn"]
+                if gemini_data.get("reason_cn"):
+                    item["ai_reason"] = gemini_data["reason_cn"]
+                
                 filtered.append(item)
         
         return filtered[:limit]
     
     except Exception as e:
         print(f"  [ERROR] Gemini filtering failed: {e}")
+        # 出错时降级：返回原文前 N 条
         return items[:limit]
+
+
+def generate_daily_summary(model: genai.GenerativeModel, all_selected: dict[str, list[dict]]) -> str:
+    """生成日报整体综述"""
+    content = ""
+    for source, items in all_selected.items():
+        for item in items:
+            title = item.get("title", "")
+            reason = item.get("ai_reason", "")
+            content += f"- {title}: {reason}\n"
+    
+    if not content:
+        return "今日暂无重点资讯。"
+
+    prompt = SUMMARY_PROMPT.format(content=content[:5000]) # 限制长度
+    
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        print(f"  [WARN] Failed to generate summary: {e}")
+        return "今日 AI 热点资讯汇总。"
 
 
 # ============================================================================
@@ -237,7 +270,7 @@ def ensure_tables_exist(supabase: Client) -> None:
     try:
         # 检查 daily_reports 表是否存在
         supabase.table("daily_reports").select("id").limit(1).execute()
-        print("  daily_reports table: OK")
+        # print("  daily_reports table: OK")
     except Exception:
         print("  [WARN] daily_reports table not found. Daily report will not be saved.")
         print("  To create it, run this SQL in Supabase Dashboard:")
@@ -245,6 +278,7 @@ def ensure_tables_exist(supabase: Client) -> None:
         print("    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,")
         print("    report_date DATE DEFAULT CURRENT_DATE UNIQUE,")
         print("    content TEXT NOT NULL,")
+        print("    summary TEXT,")
         print("    created_at TIMESTAMPTZ DEFAULT NOW()")
         print("  );")
 
@@ -252,11 +286,6 @@ def ensure_tables_exist(supabase: Client) -> None:
 def upsert_hotspots(supabase: Client, items: list[dict], source: str) -> int:
     """
     将热点数据写入 Supabase
-    
-    使用 url 作为唯一标识进行 upsert
-    
-    Returns:
-        成功写入的记录数
     """
     if not items:
         return 0
@@ -266,7 +295,7 @@ def upsert_hotspots(supabase: Client, items: list[dict], source: str) -> int:
         records.append({
             "title": item["title"],
             "url": item["url"],
-            "summary": item.get("ai_reason") or item.get("summary", ""),
+            "summary": item.get("ai_reason") or item.get("summary", ""), # 优先使用 AI 生成的中文理由
             "source": source,
             "is_published": True,
         })
@@ -285,15 +314,18 @@ def upsert_hotspots(supabase: Client, items: list[dict], source: str) -> int:
         return 0
 
 
-def save_daily_report(supabase: Client, report_content: str) -> bool:
+def save_daily_report(supabase: Client, report_content: str, summary: str = "") -> bool:
     """保存每日报告到数据库"""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
+    data = {
+        "report_date": today,
+        "content": report_content,
+        "summary": summary
+    }
+    
     try:
-        supabase.table("daily_reports").upsert({
-            "report_date": today,
-            "content": report_content,
-        }, on_conflict="report_date").execute()
+        supabase.table("daily_reports").upsert(data, on_conflict="report_date").execute()
         return True
     except Exception as e:
         print(f"[ERROR] Failed to save daily report: {e}")
@@ -304,71 +336,9 @@ def save_daily_report(supabase: Client, report_content: str) -> bool:
 # 报告生成
 # ============================================================================
 
-TRANSLATE_PROMPT = """请将以下文章标题翻译成中文。保持简洁，不要添加额外解释。
-
-标题列表：
-{titles}
-
-请以 JSON 格式返回翻译结果：
-```json
-{{
-  "translations": [
-    "翻译后的标题1",
-    "翻译后的标题2"
-  ]
-}}
-```
-
-只返回 JSON，不要其他内容。翻译顺序必须与原标题一一对应。
-"""
-
-
-def translate_titles(model: genai.GenerativeModel, titles: list[str]) -> list[str]:
-    """
-    使用 Gemini 将标题翻译成中文
-    
-    Args:
-        model: Gemini 模型实例
-        titles: 原始标题列表
-    
-    Returns:
-        翻译后的标题列表（失败则返回原标题）
-    """
-    if not titles:
-        return titles
-    
-    # 构建标题列表
-    titles_text = "\n".join([f"{i+1}. {title}" for i, title in enumerate(titles)])
-    prompt = TRANSLATE_PROMPT.format(titles=titles_text)
-    
-    try:
-        response = model.generate_content(prompt)
-        response_text = response.text.strip()
-        
-        # 提取 JSON
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
-        if not json_match:
-            print("  [WARN] Could not parse translation response, using original titles")
-            return titles
-        
-        result = json.loads(json_match.group())
-        translations = result.get("translations", [])
-        
-        # 确保翻译数量匹配
-        if len(translations) != len(titles):
-            print(f"  [WARN] Translation count mismatch ({len(translations)} vs {len(titles)}), using original")
-            return titles
-        
-        return translations
-    
-    except Exception as e:
-        print(f"  [WARN] Translation failed: {e}, using original titles")
-        return titles
-
-
 def generate_daily_report(
     all_selected: dict[str, list[dict]], 
-    model: genai.GenerativeModel = None
+    daily_summary: str = ""
 ) -> str:
     """生成每日 Markdown 报告（中文版）"""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -380,31 +350,26 @@ def generate_daily_report(
         "",
     ]
     
+    if daily_summary:
+        lines.append(f"> **今日综述**：{daily_summary}")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+    
     total_count = sum(len(items) for items in all_selected.values())
     lines.append(f"今日共收录 **{total_count}** 条热点，来自 **{len(all_selected)}** 个信息源。")
-    lines.append("")
-    lines.append("---")
     lines.append("")
     
     for source, items in all_selected.items():
         lines.append(f"## {source}")
         lines.append("")
         
-        # 收集所有标题进行批量翻译
-        original_titles = [item["title"] for item in items]
-        
-        if model:
-            print(f"  Translating {len(original_titles)} titles for {source}...")
-            translated_titles = translate_titles(model, original_titles)
-        else:
-            translated_titles = original_titles
-        
         for i, item in enumerate(items):
-            title_cn = translated_titles[i] if i < len(translated_titles) else item["title"]
+            title = item["title"] # 已经是中文
             url = item["url"]
-            reason = item.get("ai_reason", "")
+            reason = item.get("ai_reason", "") # 已经是中文
             
-            lines.append(f"### {i+1}. [{title_cn}]({url})")
+            lines.append(f"### {i+1}. [{title}]({url})")
             if reason:
                 lines.append(f"> {reason}")
             lines.append("")
@@ -425,7 +390,7 @@ def main():
     print()
     
     # 初始化
-    print("[1/5] Initializing...")
+    print("[1/6] Initializing...")
     try:
         model = init_gemini()
         supabase = init_supabase()
@@ -438,16 +403,16 @@ def main():
     
     # 抓取所有源
     print()
-    print("[2/5] Fetching RSS feeds...")
+    print("[2/6] Fetching RSS feeds...")
     raw_data = fetch_all_feeds(feeds)
     
     if not raw_data:
         print("[WARN] No data fetched from any source")
         sys.exit(0)
     
-    # 使用 Gemini 筛选
+    # 使用 Gemini 筛选并中文化
     print()
-    print("[3/5] Filtering with Gemini...")
+    print("[3/6] Filtering & Translating with Gemini...")
     all_selected = {}
     
     for source, items in raw_data.items():
@@ -457,9 +422,20 @@ def main():
             all_selected[source] = selected
             print(f"    Selected {len(selected)} items")
     
-    # 写入数据库
+    # 生成日报综述
     print()
-    print("[4/5] Saving to database...")
+    print("[4/6] Generating daily summary...")
+    daily_summary = ""
+    if all_selected:
+        try:
+            daily_summary = generate_daily_summary(model, all_selected)
+            print(f"  Summary: {daily_summary}")
+        except Exception as e:
+            print(f"  [WARN] Skipped summary generation: {e}")
+    
+    # 写入数据库 (Hotspots)
+    print()
+    print("[5/6] Saving hotspots to database...")
     total_saved = 0
     
     for source, items in all_selected.items():
@@ -469,12 +445,12 @@ def main():
     
     print(f"  Total saved: {total_saved} records")
     
-    # 生成并保存报告
+    # 生成并保存报告 (Daily Report)
     print()
-    print("[5/5] Generating daily report...")
-    report = generate_daily_report(all_selected, model)
+    print("[6/6] Generating & Saving daily report...")
+    report = generate_daily_report(all_selected, daily_summary)
     
-    if save_daily_report(supabase, report):
+    if save_daily_report(supabase, report, daily_summary):
         print("  Daily report saved successfully")
     else:
         print("  [WARN] Failed to save daily report")
