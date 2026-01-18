@@ -5,20 +5,8 @@
  */
 import { supabase } from '../../lib/supabase'
 
-export async function getStaticPaths() {
-  if (!supabase) {
-    return []
-  }
-  
-  const { data } = await supabase
-    .from('daily_reports')
-    .select('report_date')
-    .order('report_date', { ascending: false })
-  
-  return (data || []).map(report => ({
-    params: { date: report.report_date }
-  }))
-}
+// 启用 SSR，禁用预渲染
+export const prerender = false;
 
 const { date } = Astro.params
 
