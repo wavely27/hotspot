@@ -367,7 +367,11 @@ def generate_daily_report(
         for i, item in enumerate(items):
             title = item["title"] # 已经是中文
             url = item["url"]
-            reason = item.get("ai_reason", "") # 已经是中文
+            # 优先使用 AI 生成的理由，否则使用原文摘要
+            reason = item.get("ai_reason") or item.get("summary", "")
+            # 限制摘要长度，避免过长
+            if reason and len(reason) > 200:
+                reason = reason[:200] + "..."
             
             lines.append(f"### {i+1}. [{title}]({url})")
             if reason:

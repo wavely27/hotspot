@@ -87,7 +87,6 @@ function formatShortDate(dateStr: string): string {
     <div class="reports-grid">
       {reports.map((report) => {
         const stats = extractStats(report.content)
-        const sources = extractSources(report.content)
         return (
           <a href={`/reports/${report.report_date}`} class="report-card">
             <div class="report-date-badge">
