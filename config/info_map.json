@@ -1,0 +1,29 @@
+{
+    "feeds": [
+        {
+            "name": "OpenAI",
+            "url": "https://openai.com/blog/rss.xml",
+            "type": "rss"
+        },
+        {
+            "name": "DeepMind",
+            "url": "https://deepmind.google/blog/rss.xml",
+            "type": "rss"
+        },
+        {
+            "name": "HuggingFace",
+            "url": "https://huggingface.co/blog/feed.xml",
+            "type": "rss"
+        },
+        {
+            "name": "36Kr AI",
+            "url": "https://36kr.com/feed/mkt/ai",
+            "type": "rss"
+        },
+        {
+            "name": "Reddit LocalLLaMA",
+            "url": "https://www.reddit.com/r/LocalLLaMA/.rss",
+            "type": "rss"
+        }
+    ]
+}
