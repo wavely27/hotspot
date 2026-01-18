@@ -59,7 +59,7 @@ jobs:
       - name: Build with Astro
         env:
           # 注入环境变量用于构建时生成静态页面
-          # 复用已有的 Secrets，映射为 PUBLIC_ 变量供 Astro 使用
+          # 将 GitHub Secrets (通常是无前缀的) 映射为 Astro 需要的 PUBLIC_ 变量
           PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
