@@ -5,8 +5,21 @@
  */
 import { supabase } from '../../lib/supabase'
 
-// 启用 SSR，禁用预渲染
-export const prerender = false;
+// 构建时生成所有静态路径
+export async function getStaticPaths() {
+  if (!supabase) {
+    return []
+  }
+  
+  const { data } = await supabase
+    .from('daily_reports')
+    .select('report_date')
+    .order('report_date', { ascending: false })
+  
+  return (data || []).map(report => ({
+    params: { date: report.report_date }
+  }))
+}
 
 const { date } = Astro.params
 

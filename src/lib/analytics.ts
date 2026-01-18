@@ -1,50 +1,48 @@
+import { supabase } from './supabase'
+
 /**
- * 前端埋点工具
+ * 前端埋点工具 - 直接写入 Supabase (Client Side)
  */
 
 export function trackPageView() {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined' || !supabase) return
 
-  // 避免在本地开发环境发送过多请求（可选）
-  // if (window.location.hostname === 'localhost') return
-
+  // 简单的 IP 哈希无法在纯前端实现（需要后端），这里简化为记录 UA 和 Referrer
+  // 如果需要更精确的统计，建议接入 Google Analytics 或 Cloudflare Analytics
+  
   const payload = {
     path: window.location.pathname,
-    referrer: document.referrer
+    referrer: document.referrer,
+    user_agent: navigator.userAgent
   }
 
-  // 使用 sendBeacon 保证页面关闭时也能发送（如果支持）
-  // 这里为了简单使用 fetch，并在空闲时执行
+  // 使用 requestIdleCallback 在空闲时发送
+  const send = () => {
+    if (supabase) {
+      supabase.from('page_views').insert(payload).then(({ error }) => {
+        if (error) console.error('Track view failed:', error)
+      })
+    }
+  }
+
   if ('requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(() => sendTrack('/api/track/view', payload))
+    (window as any).requestIdleCallback(send)
   } else {
-    setTimeout(() => sendTrack('/api/track/view', payload), 1000)
+    setTimeout(send, 1000)
   }
 }
 
 export function trackClick(url: string, hotspotId?: string, source?: string) {
+  if (!supabase) return
+
   const payload = {
     url,
-    hotspot_id: hotspotId,
+    hotspot_id: hotspotId, // 注意：如果表设置了外键且 hotspotId 为空，可能会报错，视表结构而定
     source: source || window.location.pathname
   }
   
-  // 点击通常伴随跳转，使用 sendBeacon 更可靠
-  if (navigator.sendBeacon) {
-    navigator.sendBeacon('/api/track/click', JSON.stringify(payload))
-  } else {
-    fetch('/api/track/click', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      keepalive: true
-    }).catch(console.error)
-  }
-}
-
-function sendTrack(endpoint: string, data: any) {
-  fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).catch(e => console.error('Tracking failed:', e))
+  // 点击跟踪
+  supabase.from('hotspot_clicks').insert(payload).then(({ error }) => {
+    if (error) console.error('Track click failed:', error)
+  })
 }
