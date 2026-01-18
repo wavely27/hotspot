@@ -11,6 +11,7 @@
     "verify": "node verify-setup.js"
   },
   "dependencies": {
+    "@astrojs/node": "^9.5.2",
     "@astrojs/react": "^4.4.2",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/vite": "^4.1.18",

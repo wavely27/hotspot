@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro'
 import { supabase } from '../../../lib/supabase'
 
+export const prerender = false;
+
 export const POST: APIRoute = async ({ request, clientAddress }) => {
   if (!supabase) {
     return new Response(JSON.stringify({ error: 'Supabase not configured' }), { status: 500 })
