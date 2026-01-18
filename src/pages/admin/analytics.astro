@@ -1,0 +1,93 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { supabase } from '../../lib/supabase';
+
+let pageViews = [];
+let hotspotClicks = [];
+
+if (supabase) {
+  // 获取最近 20 条访问记录
+  const { data: pvData } = await supabase
+    .from('page_views')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(20);
+  
+  pageViews = pvData || [];
+
+  // 获取最近 20 条点击记录
+  const { data: clickData } = await supabase
+    .from('hotspot_clicks')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(20);
+  
+  hotspotClicks = clickData || [];
+}
+---
+
+<AdminLayout title="流量分析">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    
+    <!-- Page Views -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">最近访问 (Page Views)</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-gray-50 text-gray-500 font-medium">
+            <tr>
+              <th class="px-6 py-3">路径</th>
+              <th class="px-6 py-3">来源</th>
+              <th class="px-6 py-3">时间</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {pageViews.length === 0 ? (
+              <tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">暂无数据</td></tr>
+            ) : pageViews.map((pv) => (
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-3 font-mono text-blue-600">{pv.path}</td>
+                <td class="px-6 py-3 text-gray-500 truncate max-w-[150px]">{pv.referrer || '-'}</td>
+                <td class="px-6 py-3 text-gray-400">{new Date(pv.created_at).toLocaleString('zh-CN')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Clicks -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-800">最近点击 (Hotspot Clicks)</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-gray-50 text-gray-500 font-medium">
+            <tr>
+              <th class="px-6 py-3">目标链接</th>
+              <th class="px-6 py-3">位置</th>
+              <th class="px-6 py-3">时间</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {hotspotClicks.length === 0 ? (
+              <tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">暂无数据</td></tr>
+            ) : hotspotClicks.map((click) => (
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-3 text-blue-600 truncate max-w-[200px]" title={click.url}>
+                  <a href={click.url} target="_blank" rel="noopener">{click.url}</a>
+                </td>
+                <td class="px-6 py-3 text-gray-500">{click.source}</td>
+                <td class="px-6 py-3 text-gray-400">{new Date(click.created_at).toLocaleString('zh-CN')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</AdminLayout>

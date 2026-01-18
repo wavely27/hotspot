@@ -1,0 +1,82 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import DashboardCharts from '../../components/admin/DashboardCharts';
+import { supabase } from '../../lib/supabase';
+import { Users, MousePointer2, FileText, TrendingUp } from 'lucide-react';
+
+// 获取数据
+let stats = {
+  todayViews: 0,
+  todayClicks: 0,
+  totalReports: 0,
+  chartData: []
+};
+
+if (supabase) {
+  const today = new Date().toISOString().split('T')[0];
+  const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // 1. 获取今日浏览量
+  const { count: viewsCount } = await supabase
+    .from('page_views')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', today);
+  
+  // 2. 获取今日点击量
+  const { count: clicksCount } = await supabase
+    .from('hotspot_clicks')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', today);
+
+  // 3. 获取日报总数
+  const { count: reportsCount } = await supabase
+    .from('daily_reports')
+    .select('*', { count: 'exact', head: true });
+
+  // 4. 获取图表数据 (这里为了演示简单处理，生产环境建议用 RPC)
+  // 实际应该查询过去7天所有数据并在内存聚合，或者写 SQL Function
+  // 这里暂时 mock 数据，等待真实数据积累
+  
+  stats = {
+    todayViews: viewsCount || 0,
+    todayClicks: clicksCount || 0,
+    totalReports: reportsCount || 0,
+    chartData: [
+      { date: 'Mon', views: 120, clicks: 45 },
+      { date: 'Tue', views: 150, clicks: 55 },
+      { date: 'Wed', views: 180, clicks: 70 },
+      { date: 'Thu', views: 140, clicks: 50 },
+      { date: 'Fri', views: 200, clicks: 80 },
+      { date: 'Sat', views: 250, clicks: 100 },
+      { date: 'Sun', views: 300, clicks: 120 },
+    ]
+  };
+}
+
+const statCards = [
+  { label: '今日浏览量', value: stats.todayViews, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+  { label: '今日点击量', value: stats.todayClicks, icon: MousePointer2, color: 'text-purple-600', bg: 'bg-purple-50' },
+  { label: '累计日报', value: stats.totalReports, icon: FileText, color: 'text-green-600', bg: 'bg-green-50' },
+  { label: '转化率', value: `${stats.todayViews ? Math.round((stats.todayClicks / stats.todayViews) * 100) : 0}%`, icon: TrendingUp, color: 'text-orange-600', bg: 'bg-orange-50' },
+];
+---
+
+<AdminLayout title="仪表盘">
+  <!-- Stat Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    {statCards.map((stat) => (
+      <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+        <div class={`p-3 rounded-lg ${stat.bg}`}>
+          <stat.icon className={`w-6 h-6 ${stat.color}`} />
+        </div>
+        <div>
+          <p class="text-sm text-gray-500 font-medium">{stat.label}</p>
+          <p class="text-2xl font-bold text-gray-900">{stat.value}</p>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <!-- Charts -->
+  <DashboardCharts client:load data={stats.chartData} />
+</AdminLayout>

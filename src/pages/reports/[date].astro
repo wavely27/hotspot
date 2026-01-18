@@ -115,6 +115,22 @@ function formatDate(dateStr: string): string {
         </article>
       )}
     </main>
+    <script>
+      import { trackPageView, trackClick } from '../../lib/analytics';
+      
+      // 记录 PV
+      trackPageView();
+
+      // 全局监听热点点击
+      document.addEventListener('click', (e) => {
+        const target = (e.target as HTMLElement).closest('.report-link');
+        if (target) {
+          const url = (target as HTMLAnchorElement).href;
+          // 尝试从 DOM 结构或 data 属性获取 hotspot_id (目前暂时没有 hotspot_id，只记录 url)
+          trackClick(url, undefined, 'daily_report_detail');
+        }
+      });
+    </script>
   </body>
 </html>
 

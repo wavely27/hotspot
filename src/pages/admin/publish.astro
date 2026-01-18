@@ -1,0 +1,25 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import ReportPublisher from '../../components/admin/ReportPublisher';
+import { supabase } from '../../lib/supabase';
+
+let reports = [];
+
+if (supabase) {
+  const { data } = await supabase
+    .from('daily_reports')
+    .select('*')
+    .order('report_date', { ascending: false })
+    .limit(10);
+  
+  reports = data || [];
+}
+---
+
+<AdminLayout title="发布中心">
+  <div class="mb-6">
+    <p class="text-gray-600">管理并分发每日 AI 热点日报到各大自媒体平台。</p>
+  </div>
+
+  <ReportPublisher client:load reports={reports} />
+</AdminLayout>

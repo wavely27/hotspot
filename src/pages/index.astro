@@ -18,6 +18,10 @@ import DailyReports from '../components/DailyReports.astro'
 			</header>
 			<DailyReports />
 		</main>
+    <script>
+      import { trackPageView } from '../lib/analytics';
+      trackPageView();
+    </script>
 	</body>
 </html>
 
