@@ -2,11 +2,13 @@
 import { LayoutDashboard, BarChart3, Send, ExternalLink } from 'lucide-react';
 import '../styles/global.css'; // 确保引入 Tailwind
 
+const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '');
+
 const navItems = [
-  { href: '/admin', label: '仪表盘', icon: LayoutDashboard },
-  { href: '/admin/analytics', label: '流量分析', icon: BarChart3 },
-  { href: '/admin/publish', label: '发布中心', icon: Send },
-  { href: '/', label: '查看站点', icon: ExternalLink, external: true },
+  { href: `${baseUrl}/admin`, label: '仪表盘', icon: LayoutDashboard },
+  { href: `${baseUrl}/admin/analytics`, label: '流量分析', icon: BarChart3 },
+  { href: `${baseUrl}/admin/publish`, label: '发布中心', icon: Send },
+  { href: `${baseUrl}/`, label: '查看站点', icon: ExternalLink, external: true },
 ];
 
 const { title } = Astro.props;
@@ -29,8 +31,10 @@ const currentPath = Astro.url.pathname;
       </div>
       <nav class="flex-1 p-4 space-y-1">
         {navItems.map((item) => {
-          const isActive = item.href === '/admin' 
-            ? currentPath === '/admin'
+          // 精确匹配仪表盘根路径，其他路径使用前缀匹配
+          const isDashboard = item.href === `${baseUrl}/admin`;
+          const isActive = isDashboard
+            ? currentPath === item.href || currentPath === `${item.href}/`
             : currentPath.startsWith(item.href);
           
           return (

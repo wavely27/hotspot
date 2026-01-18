@@ -87,8 +87,10 @@ function formatShortDate(dateStr: string): string {
     <div class="reports-grid">
       {reports.map((report) => {
         const stats = extractStats(report.content)
+        // 适配 base path (GitHub Pages)
+        const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '')
         return (
-          <a href={`/reports/${report.report_date}`} class="report-card">
+          <a href={`${baseUrl}/reports/${report.report_date}`} class="report-card">
             <div class="report-date-badge">
               {formatShortDate(report.report_date)}
             </div>
