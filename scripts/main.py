@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import feedparser
-import google.generativeai as genai
+from openai import OpenAI
 from supabase import create_client, Client
 
 # ============================================================================
@@ -27,21 +27,23 @@ MAX_ITEMS_PER_SOURCE = 10
 # 每个源抓取的原始条目数（用于筛选）
 FETCH_ITEMS_PER_SOURCE = 30
 
-# Gemini 模型
-GEMINI_MODEL = "gemini-2.0-flash"
+# MegaLLM 模型
+LLM_MODEL = "moonshotai/kimi-k2-instruct-0905"
 
 # ============================================================================
 # 初始化
 # ============================================================================
 
-def init_gemini() -> genai.GenerativeModel:
-    """初始化 Gemini 客户端"""
-    api_key = os.environ.get("GEMINI_API_KEY")
+def init_llm() -> OpenAI:
+    """初始化 OpenAI 客户端 (MegaLLM)"""
+    api_key = os.environ.get("MEGALLM_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY environment variable is required")
+        raise ValueError("MEGALLM_API_KEY environment variable is required")
     
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(GEMINI_MODEL)
+    return OpenAI(
+        base_url="https://ai.megallm.io/v1",
+        api_key=api_key
+    )
 
 
 def init_supabase() -> Client:
@@ -182,12 +184,12 @@ SUMMARY_PROMPT = """请根据以下今日 AI 热点新闻的标题和推荐理�
 
 
 def filter_items_with_gemini(
-    model: genai.GenerativeModel,
+    client: OpenAI,
     items: list[dict],
     limit: int = MAX_ITEMS_PER_SOURCE
 ) -> list[dict]:
     """
-    使用 Gemini 筛选最相关的文章，并生成中文标题和理由
+    使用 LLM 筛选最相关的文章，并生成中文标题和理由
     """
     if not items:
         return []
@@ -202,13 +204,17 @@ def filter_items_with_gemini(
     prompt = FILTER_PROMPT.format(limit=limit, articles=articles_text)
     
     try:
-        response = model.generate_content(prompt)
-        response_text = response.text.strip()
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        response_text = response.choices[0].message.content.strip()
         
-        # 提取 JSON
+        # 提取 JSON (如果 response_format 不生效，手动提取)
         json_match = re.search(r"\{[\s\S]*\}", response_text)
         if not json_match:
-            print("  [WARN] Could not parse Gemini response, returning original items")
+            print("  [WARN] Could not parse LLM response, returning original items")
             return items[:limit]
         
         result = json.loads(json_match.group())
@@ -234,12 +240,12 @@ def filter_items_with_gemini(
         return filtered[:limit]
     
     except Exception as e:
-        print(f"  [ERROR] Gemini filtering failed: {e}")
+        print(f"  [ERROR] LLM filtering failed: {e}")
         # 出错时降级：返回原文前 N 条
         return items[:limit]
 
 
-def generate_daily_summary(model: genai.GenerativeModel, all_selected: dict[str, list[dict]]) -> str:
+def generate_daily_summary(client: OpenAI, all_selected: dict[str, list[dict]]) -> str:
     """生成日报整体综述"""
     content = ""
     for source, items in all_selected.items():
@@ -254,8 +260,11 @@ def generate_daily_summary(model: genai.GenerativeModel, all_selected: dict[str,
     prompt = SUMMARY_PROMPT.format(content=content[:5000]) # 限制长度
     
     try:
-        response = model.generate_content(prompt)
-        return response.text.strip()
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"  [WARN] Failed to generate summary: {e}")
         return "今日 AI 热点资讯汇总。"
@@ -396,7 +405,7 @@ def main():
     # 初始化
     print("[1/6] Initializing...")
     try:
-        model = init_gemini()
+        client = init_llm()
         supabase = init_supabase()
         feeds = load_feed_config()
         print(f"  Loaded {len(feeds)} feed sources")
@@ -414,14 +423,14 @@ def main():
         print("[WARN] No data fetched from any source")
         sys.exit(0)
     
-    # 使用 Gemini 筛选并中文化
+    # 使用 LLM 筛选并中文化
     print()
-    print("[3/6] Filtering & Translating with Gemini...")
+    print("[3/6] Filtering & Translating with LLM...")
     all_selected = {}
     
     for source, items in raw_data.items():
         print(f"  Processing: {source} ({len(items)} items)")
-        selected = filter_items_with_gemini(model, items)
+        selected = filter_items_with_gemini(client, items)
         if selected:
             all_selected[source] = selected
             print(f"    Selected {len(selected)} items")
@@ -432,7 +441,7 @@ def main():
     daily_summary = ""
     if all_selected:
         try:
-            daily_summary = generate_daily_summary(model, all_selected)
+            daily_summary = generate_daily_summary(client, all_selected)
             print(f"  Summary: {daily_summary}")
         except Exception as e:
             print(f"  [WARN] Skipped summary generation: {e}")
@@ -452,6 +461,7 @@ def main():
     # 生成并保存报告 (Daily Report)
     print()
     print("[6/6] Generating & Saving daily report...")
+    # generate_daily_report 已经不需要 model 参数了
     report = generate_daily_report(all_selected, daily_summary)
     
     if save_daily_report(supabase, report, daily_summary):

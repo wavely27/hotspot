@@ -1,145 +1,68 @@
-# Hotspot - Astro + Supabase
+# 📅 Hotspot - AI 技术热点日报自动化系统
 
-An Astro project pre-configured with Supabase database integration.
+Hotspot 是一个全流程自动化的 AI 资讯聚合平台。它通过监测全球顶级科技博客，利用 LLM（Gemini）进行深度内容筛选、翻译和总结，自动生成高质量的中文技术日报。
 
-## Features
+## ✨ 核心亮点
 
-- ✅ Astro framework with TypeScript
-- ✅ Supabase client integration
-- ✅ Environment variable configuration
-- ✅ Example API route for database operations
-- ✅ UI component to display database data
+*   **全自动无人值守**：GitHub Actions 每日定时抓取，无需人工干预。
+*   **AI 深度筛选**：利用 Google Gemini 模型过滤噪声，只保留高价值技术内容。
+*   **智能中文化**：自动翻译标题并生成 50 字以内的中文核心摘要，打破语言障碍。
+*   **数据可视化后台**：内置管理面板，监控内容流量与用户点击行为。
 
-## Setup
+## 🏗️ 系统架构
 
-### 1. Install Dependencies
+系统分为三个主要层级：数据采集层、数据存储层、应用展示层。
 
+### 1. 数据采集与处理 (Python)
+核心脚本位于 `scripts/` 目录：
+*   **多源抓取**：支持 RSS/Atom 协议，覆盖 OpenAI, DeepMind, HuggingFace, Reddit 等源。
+*   **智能管道**：
+    1.  **Fetch**: 获取原始数据 (Feedparser)。
+    2.  **Filter**: Gemini 模型识别 AI 相关性，剔除无关内容。
+    3.  **Translate**: 同步生成中文标题与推荐理由。
+    4.  **Summary**: 生成全篇日报的 50 字核心综述。
+*   **限流保护**：内置智能休眠机制，适配免费版 API 的速率限制 (429 错误自动降级)。
+
+### 2. 数据库 (Supabase/PostgreSQL)
+*   **`hotspots`**: 存储单条热点资讯（去重入库）。
+*   **`daily_reports`**: 存储每日生成的 Markdown 格式日报及综述。
+*   **`page_views`**: 记录页面 PV (用于流量分析)。
+*   **`hotspot_clicks`**: 记录外链点击行为 (用于热度分析)。
+
+### 3. 前端门户 (Astro + React)
+*   **日报门户**：
+    *   首页 (`/`)：以时间轴形式展示历史日报，包含核心综述。
+    *   详情页 (`/reports/[date]`)：SSR 实时渲染，支持 SEO 优化的完整日报内容。
+*   **管理后台** (`/admin`)：
+    *   **仪表盘**：使用 Recharts 展示 7 天流量趋势图。
+    *   **发布中心**：一键复制 Markdown/HTML 格式日报（适配公众号/知乎）。
+    *   **流量分析**：查看详细的访问路径与点击来源。
+
+## 🚀 部署指南
+
+### 环境变量配置
+在 `.env` 或服务器环境变量中配置：
 ```bash
-npm install
+GEMINI_API_KEY=your_gemini_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key # 用于写入数据
+SUPABASE_ANON_KEY=your_anon_key                 # 用于前端读取
 ```
 
-### 2. Create a Supabase Project
+### 数据库初始化
+在 Supabase SQL Editor 中依次执行：
+1. `scripts/create_daily_reports_table.sql`
+2. `scripts/create_analytics_tables.sql`
+3. `scripts/update_db_add_summary.sql`
 
-If you don't have a Supabase project yet:
+### 自动化配置
+项目包含 `.github/workflows/daily_fetch.yml`，默认每天 **UTC 19:00 (北京时间 03:00)** 执行。需在 GitHub Repository Settings 中配置 Secrets。
 
-1. Go to [supabase.com](https://supabase.com)
-2. Click "Start your project"
-3. Sign in or create an account
-4. Create a new project with your desired organization
+## 🛠️ 技术栈
 
-### 3. Configure Environment Variables
-
-1. Copy the example environment file:
-
-```bash
-cp .env.example .env
-```
-
-2. Get your Supabase credentials:
-   - Go to your project dashboard at [app.supabase.com](https://app.supabase.com)
-   - Navigate to **Settings** → **API**
-   - Copy your **Project URL** and **anon/public** key
-
-3. Update `.env` with your credentials:
-
-```env
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_ANON_KEY=your-anon-key-here
-```
-
-### 4. Verify Your Setup
-
-Run the verification script:
-
-```bash
-npm run verify
-```
-
-This will test:
-- Supabase connection
-- Access to `hotspots` table
-- API endpoint functionality
-
-If you see "✅ ALL TESTS PASSED!", your setup is complete!
-
-## Development
-
-### Start the Dev Server
-
-```bash
-npm run dev
-```
-
-Visit `http://localhost:4321` to see your application.
-
-### Test the Connection
-
-1. Open `http://localhost:4321` in your browser
-2. Click "Fetch Data from Supabase" button
-3. You should see your hotspots data displayed with:
-   - Title
-   - Summary
-   - Source
-   - Publication status
-   - Link to original source
-
-## Project Structure
-
-```
-/
-├── public/                  # Static assets
-├── src/
-│   ├── components/          # Astro components
-│   │   └── DataDisplay.astro   # Hotspots data display
-│   ├── lib/                # Utilities and configurations
-│   │   └── supabase.ts         # Supabase client setup
-│   ├── pages/              # Page routes
-│   │   ├── api/            # API endpoints
-│   │   │   └── test-connection.ts  # Test hotspots connection
-│   │   └── index.astro         # Main page
-│   └── env.d.ts            # TypeScript environment definitions
-├── .env                  # Your Supabase credentials (not in git)
-├── .env.example           # Environment variable template
-├── verify-setup.js        # Full verification script
-├── test-db-connection.js # Quick connection test
-├── DATABASE_SETUP.md      # Setup documentation
-└── package.json
-```
-
-## Using Supabase in Your Code
-
-### Server-Side (API Routes)
-
-```typescript
-import { supabase } from '../lib/supabase'
-
-const { data, error } = await supabase
-  .from('hotspots')
-  .select('*')
-  .eq('is_published', true)
-  .order('created_at', { ascending: false })
-```
-
-### Client-Side (Components)
-
-```typescript
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  import.meta.env.SUPABASE_URL,
-  import.meta.env.SUPABASE_ANON_KEY
-)
-```
-
-## Build for Production
-
-```bash
-npm run build
-```
-
-The optimized files will be in `./dist/`.
-
-## Learn More
-
-- [Astro Documentation](https://docs.astro.build)
-- [Supabase Documentation](https://supabase.com/docs)
+*   **Language**: Python 3.11, TypeScript
+*   **Framework**: Astro 5 (Hybrid Mode), React 19
+*   **UI**: Tailwind CSS, Lucide React
+*   **Database**: Supabase
+*   **AI Model**: Google Gemini 2.0 Flash
+*   **CI/CD**: GitHub Actions
