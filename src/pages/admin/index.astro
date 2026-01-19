@@ -4,17 +4,15 @@ import DashboardCharts from '../../components/admin/DashboardCharts';
 import { supabase } from '../../lib/supabase';
 import { Users, MousePointer2, FileText, TrendingUp } from 'lucide-react';
 
-// 获取数据
 let stats = {
   todayViews: 0,
   todayClicks: 0,
   totalReports: 0,
-  chartData: []
+  chartData: [] as { date: string; views: number; clicks: number }[]
 };
 
 if (supabase) {
   const today = new Date().toISOString().split('T')[0];
-  const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. 获取今日浏览量
   const { count: viewsCount } = await supabase
@@ -33,23 +31,41 @@ if (supabase) {
     .from('daily_reports')
     .select('*', { count: 'exact', head: true });
 
-  // 4. 获取图表数据 (这里为了演示简单处理，生产环境建议用 RPC)
-  // 实际应该查询过去7天所有数据并在内存聚合，或者写 SQL Function
-  // 这里暂时 mock 数据，等待真实数据积累
+  // 4. 获取过去7天图表数据
+  const last7Days: { date: string; views: number; clicks: number }[] = [];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    const nextDateStr = new Date(date.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const dayName = dayNames[date.getDay()];
+
+    const { count: dayViews } = await supabase
+      .from('page_views')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', dateStr)
+      .lt('created_at', nextDateStr);
+
+    const { count: dayClicks } = await supabase
+      .from('hotspot_clicks')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', dateStr)
+      .lt('created_at', nextDateStr);
+
+    last7Days.push({
+      date: dayName,
+      views: dayViews || 0,
+      clicks: dayClicks || 0
+    });
+  }
+
   stats = {
     todayViews: viewsCount || 0,
     todayClicks: clicksCount || 0,
     totalReports: reportsCount || 0,
-    chartData: [
-      { date: 'Mon', views: 120, clicks: 45 },
-      { date: 'Tue', views: 150, clicks: 55 },
-      { date: 'Wed', views: 180, clicks: 70 },
-      { date: 'Thu', views: 140, clicks: 50 },
-      { date: 'Fri', views: 200, clicks: 80 },
-      { date: 'Sat', views: 250, clicks: 100 },
-      { date: 'Sun', views: 300, clicks: 120 },
-    ]
+    chartData: last7Days
   };
 }
 
