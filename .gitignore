@@ -21,6 +21,10 @@ pnpm-debug.log*
 # temp files
 .temp
 
+# summary
+SUMMARY.md
+
+
 # macOS-specific files
 .DS_Store
 
