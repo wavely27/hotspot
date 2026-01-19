@@ -38,6 +38,7 @@ if (supabase) {
 
 // 从内容中提取统计信息
 function extractStats(content: string): { totalCount: number; sourceCount: number } {
+  // 尝试匹配带格式的统计行
   const countMatch = content.match(/今日共收录 \*\*(\d+)\*\* 条热点，来自 \*\*(\d+)\*\* 个信息源/)
   if (countMatch) {
     return {
@@ -45,7 +46,15 @@ function extractStats(content: string): { totalCount: number; sourceCount: numbe
       sourceCount: parseInt(countMatch[2])
     }
   }
-  return { totalCount: 0, sourceCount: 0 }
+  
+  // 备用：通过统计 ## 和 ### 的数量来计算
+  const sources = content.match(/^## .+$/gm) || []
+  const items = content.match(/^### \d+\. /gm) || []
+  
+  return { 
+    totalCount: items.length, 
+    sourceCount: sources.length 
+  }
 }
 
 // 格式化日期
