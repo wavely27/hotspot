@@ -434,16 +434,56 @@ def upsert_hotspots(supabase: Client, items: list[dict], source: str) -> int:
 
 
 def save_daily_report(supabase: Client, report_content: str, summary: str = "") -> bool:
-    """保存每日报告到数据库"""
+    """保存每日报告到数据库（增量模式：追加新来源，不覆盖已有内容）"""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    data = {
-        "report_date": today,
-        "content": report_content,
-        "summary": summary
-    }
-    
     try:
+        # 1. 查询当天是否已有日报
+        existing = supabase.table("daily_reports").select("content, summary").eq("report_date", today).execute()
+        
+        if existing.data:
+            # 2. 已有日报：智能合并
+            old_content = existing.data[0].get("content", "")
+            old_summary = existing.data[0].get("summary", "")
+            
+            # 解析已有的来源（## 开头的行）
+            existing_sources = set(re.findall(r"^## (.+)$", old_content, re.MULTILINE))
+            
+            # 解析新内容中的来源和对应内容块
+            new_sections = re.split(r"(?=^## )", report_content, flags=re.MULTILINE)
+            
+            # 筛选出新来源的内容块
+            new_content_parts = []
+            for section in new_sections:
+                match = re.match(r"^## (.+)$", section, re.MULTILINE)
+                if match:
+                    source_name = match.group(1)
+                    if source_name not in existing_sources:
+                        new_content_parts.append(section)
+            
+            if new_content_parts:
+                # 追加新来源到已有内容末尾
+                merged_content = old_content.rstrip() + "\n\n" + "\n".join(new_content_parts)
+                # 更新 summary（可选：追加或保持原有）
+                merged_summary = old_summary if old_summary else summary
+            else:
+                # 没有新来源，保持原样
+                merged_content = old_content
+                merged_summary = old_summary
+            
+            data = {
+                "report_date": today,
+                "content": merged_content,
+                "summary": merged_summary
+            }
+        else:
+            # 3. 没有已有日报：直接插入
+            data = {
+                "report_date": today,
+                "content": report_content,
+                "summary": summary
+            }
+        
         supabase.table("daily_reports").upsert(data, on_conflict="report_date").execute()
         return True
     except Exception as e:

@@ -72,40 +72,44 @@ def fetch_aibase_news(limit: int = 30) -> list[dict]:
         soup = BeautifulSoup(resp.text, "html.parser")
         
         items = []
-        articles = soup.select("article, .news-item, [class*='news'], [class*='article']")
-        
-        if not articles:
-            articles = soup.find_all("a", href=re.compile(r"/news/\d+"))
+        # AIbase 结构：链接包含 /news/
+        article_links = soup.select("a[href*='/news/']")
         
         seen_urls = set()
-        for article in articles[:limit * 2]:
-            link = article if article.name == "a" else article.find("a")
-            if not link:
-                continue
-                
+        
+        for link in article_links:
             href = link.get("href", "")
             if not href or href in seen_urls:
                 continue
             
-            full_url = urljoin(url, href)
-            if "/news/" not in full_url:
+            # 排除非新闻详情页
+            if not re.search(r"/news/\d+", href):
                 continue
                 
+            full_url = urljoin(url, href)
             seen_urls.add(href)
             
-            title_elem = article.find(["h1", "h2", "h3", "h4"]) or link
-            title = title_elem.get_text(strip=True) if title_elem else ""
-            
-            if not title or len(title) < 5:
+            # 获取标题并清理
+            raw_title = link.get_text(strip=True)
+            if not raw_title:
                 continue
             
-            summary_elem = article.find(["p", ".summary", ".desc", ".description"])
-            summary = summary_elem.get_text(strip=True) if summary_elem else ""
+            # 清理 "刚刚.AIbase" 等前缀
+            # 通常格式是 "时间.作者标题"
+            # 我们移除 .AIbase 之前的内容
+            title = re.sub(r'^.*\.AIbase', '', raw_title).strip()
+            # 如果正则没匹配到（格式不同），直接用原标题
+            if not title:
+                title = raw_title
+                
+            # 摘要：AIbase 列表页摘要是 JS 加载的 ("加载中...")
+            # 我们直接使用标题作为摘要，或者让 LLM 后续自行生成
+            summary = title 
             
             items.append({
                 "title": title,
                 "url": full_url,
-                "summary": summary[:500] if summary else "",
+                "summary": summary,
                 "published": None,
             })
             
@@ -120,7 +124,7 @@ def fetch_aibase_news(limit: int = 30) -> list[dict]:
 
 
 def fetch_aibot_daily_news(limit: int = 30) -> list[dict]:
-    """爬取 AI工具集 每日资讯"""
+    """爬取 AI工具集 (ai-bot.cn/daily-ai-news/)"""
     url = "https://ai-bot.cn/daily-ai-news/"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=30)
@@ -128,28 +132,50 @@ def fetch_aibot_daily_news(limit: int = 30) -> list[dict]:
         soup = BeautifulSoup(resp.text, "html.parser")
         
         items = []
-        news_blocks = soup.find_all(["h3", "h4", "strong"])
+        # 根据 Debug 结果：标题在 h2 中，父容器 class 为 news-content
+        # 有时候是 h2 (单条新闻)，有时候是 h3
+        news_items = soup.find_all(class_="news-content")
         
-        for block in news_blocks[:limit * 2]:
-            text = block.get_text(strip=True)
-            if not text or len(text) < 10:
+        if not news_items:
+            # 备用：查找所有 h2
+            news_items = soup.find_all("h2")
+            
+        for container in news_items:
+            # 如果 container 是 div.news-content，找里面的 h2
+            if container.name == "div":
+                title_elem = container.find(["h2", "h3"])
+                # 找链接
+                link_elem = container.find("a", href=True) or container.find_parent("a")
+                # 找摘要
+                desc_elem = container.find("p")
+            else:
+                # container 本身就是 h2
+                title_elem = container
+                link_elem = container.find("a", href=True)
+                desc_elem = container.find_next("p")
+            
+            if not title_elem:
                 continue
-            
-            parent = block.find_parent(["div", "section", "article"])
-            if not parent:
+                
+            title = title_elem.get_text(strip=True)
+            if not title or len(title) < 5:
                 continue
+                
+            # 链接
+            item_url = url
+            if link_elem:
+                item_url = link_elem["href"]
             
-            link = parent.find("a", href=True)
-            href = link.get("href") if link else ""
-            
-            summary_elem = block.find_next(["p", "div"])
+            # 摘要
             summary = ""
-            if summary_elem and summary_elem != block:
-                summary = summary_elem.get_text(strip=True)[:500]
-            
+            if desc_elem:
+                summary = desc_elem.get_text(strip=True)
+            if not summary:
+                summary = title
+                
             items.append({
-                "title": text,
-                "url": href or url,
+                "title": title,
+                "url": item_url,
                 "summary": summary,
                 "published": None,
             })
@@ -165,26 +191,68 @@ def fetch_aibot_daily_news(limit: int = 30) -> list[dict]:
 
 
 def fetch_ithome_ai_news(limit: int = 30) -> list[dict]:
-    """抓取 IT之家 RSS 并筛选 AI 相关"""
-    rss_url = "https://www.ithome.com/rss/"
-    ai_keywords = [
-        "AI", "人工智能", "大模型", "ChatGPT", "GPT", "LLM", "机器学习",
-        "深度学习", "神经网络", "Gemini", "Claude", "OpenAI", "智能",
-        "AIGC", "生成式", "Copilot", "智能体", "Agent", "机器人"
-    ]
-    
+    """抓取 IT之家 AI 标签页 (替代 RSS 过滤)"""
+    url = "https://www.ithome.com/tag/ai"
     try:
-        items = fetch_rss_feed(rss_url, limit=100)
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
         
-        filtered = []
-        for item in items:
-            text = f"{item['title']} {item['summary']}".upper()
-            if any(kw.upper() in text for kw in ai_keywords):
-                filtered.append(item)
-                if len(filtered) >= limit:
-                    break
+        items = []
+        # 列表项通常在 .run_list li 或 .news-list li
+        list_items = soup.select(".block li, .news-list li, ul.bl li")
         
-        return filtered
+        seen_urls = set()
+        
+        for li in list_items:
+            # 查找链接
+            a_tag = li.find("a", href=True)
+            if not a_tag:
+                continue
+                
+            href = a_tag["href"]
+            if href in seen_urls:
+                continue
+            
+            full_url = href # IT之家通常是完整链接
+            if not full_url.startswith("http"):
+                full_url = urljoin("https://www.ithome.com", href)
+                
+            seen_urls.add(href)
+            
+            # 标题
+            title = a_tag.get_text(strip=True)
+            # 有时候标题在 h2 或 inside div
+            if not title:
+                title_elem = li.find(["h2", "h3", ".title"])
+                if title_elem:
+                    title = title_elem.get_text(strip=True)
+            
+            if not title:
+                continue
+                
+            # 摘要
+            summary = ""
+            desc_elem = li.find(class_="memo") or li.find(class_="m")
+            if desc_elem:
+                summary = desc_elem.get_text(strip=True)
+            
+            # 时间
+            published = None
+            date_elem = li.find(class_="time") or li.find(class_="t")
+            # 处理时间字符串... 这里简化，由后续流程处理
+            
+            items.append({
+                "title": title,
+                "url": full_url,
+                "summary": summary,
+                "published": None,
+            })
+            
+            if len(items) >= limit:
+                break
+        
+        return items
     
     except Exception as e:
         print(f"  [ERROR] Failed to fetch IT之家: {e}")
