@@ -11,19 +11,41 @@
             "type": "rss"
         },
         {
-            "name": "HuggingFace",
+            "name": "HuggingFace Blog",
             "url": "https://huggingface.co/blog/feed.xml",
-            "type": "rss"
-        },
-        {
-            "name": "36Kr AI",
-            "url": "https://36kr.com/feed/mkt/ai",
             "type": "rss"
         },
         {
             "name": "Reddit LocalLLaMA",
             "url": "https://www.reddit.com/r/LocalLLaMA/.rss",
             "type": "rss"
+        },
+        {
+            "name": "AIbase",
+            "type": "crawler",
+            "fetcher": "fetch_aibase_news"
+        },
+        {
+            "name": "AI工具集",
+            "type": "crawler",
+            "fetcher": "fetch_aibot_daily_news"
+        },
+        {
+            "name": "IT之家 AI",
+            "type": "crawler",
+            "fetcher": "fetch_ithome_ai_news"
         }
-    ]
+    ],
+    "trending": {
+        "github": {
+            "name": "GitHub Trending AI",
+            "type": "api",
+            "fetcher": "fetch_github_trending_ai"
+        },
+        "huggingface": {
+            "name": "HuggingFace Trending",
+            "type": "api",
+            "fetcher": "fetch_huggingface_trending"
+        }
+    }
 }
