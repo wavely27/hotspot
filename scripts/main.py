@@ -6,10 +6,13 @@ Daily AI Hotspot Fetcher
 存入 Supabase 数据库，并生成每日报告。
 """
 
-import json
-import os
 import re
 import sys
+import json
+import os
+import concurrent.futures
+import time
+from typing import Any, cast
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,13 +37,16 @@ from fetchers import (
 # ============================================================================
 
 # 每个源最多保留的条目数
-MAX_ITEMS_PER_SOURCE = 10
+MAX_ITEMS_PER_SOURCE = int(os.environ.get("MAX_ITEMS_PER_SOURCE", 10))
 
 # 每个源抓取的原始条目数（用于筛选）
-FETCH_ITEMS_PER_SOURCE = 30
+FETCH_ITEMS_PER_SOURCE = int(os.environ.get("FETCH_ITEMS_PER_SOURCE", 30))
 
-# MegaLLM 模型
-LLM_MODEL = "moonshotai/kimi-k2-instruct-0905"
+LLM_MODELS = [
+    "deepseek-ai/deepseek-v3.1",
+    "deepseek-ai/deepseek-v3.1-terminus",
+    "qwen/qwen3-next-80b-a3b-instruct",
+]
 
 # ============================================================================
 # 初始化
@@ -98,19 +104,18 @@ def fetch_all_feeds(feeds: list[dict]) -> dict[str, list[dict]]:
     """
     all_items = {}
     
-    for feed in feeds:
-        name = feed["name"]
-        feed_type = feed.get("type", "rss")
+    def fetch_with_timeout(name: str, feed_type: str, feed_config: dict) -> list[dict]:
+        """Fetch a single feed with timeout handling"""
         print(f"Fetching: {name} ({feed_type})...")
-        
         items = []
         try:
             if feed_type == "rss":
-                url = feed.get("url", "")
+                url = feed_config.get("url", "")
                 if url:
+                    # Feedparser handles timeouts internally or we can wrap it
                     items = fetch_rss_feed(url, limit=FETCH_ITEMS_PER_SOURCE)
             elif feed_type == "crawler":
-                fetcher_name = feed.get("fetcher", "")
+                fetcher_name = feed_config.get("fetcher", "")
                 fetcher_func = CRAWLER_MAP.get(fetcher_name)
                 if fetcher_func:
                     items = fetcher_func(limit=FETCH_ITEMS_PER_SOURCE)
@@ -118,14 +123,78 @@ def fetch_all_feeds(feeds: list[dict]) -> dict[str, list[dict]]:
                     print(f"  [WARN] Unknown fetcher: {fetcher_name}")
         except Exception as e:
             print(f"  [ERROR] Failed to fetch {name}: {e}")
-        
+            
         if items:
-            all_items[name] = items
-            print(f"  Found {len(items)} items")
-        else:
-            print(f"  No items found")
-    
+            print(f"  Found {len(items)} items from {name}")
+            return items
+        print(f"  No items found from {name}")
+        return []
+
+    # Use ThreadPoolExecutor for parallel fetching
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_feed = {}
+        for feed in feeds:
+            name = feed["name"]
+            feed_type = feed.get("type", "rss")
+            future = executor.submit(fetch_with_timeout, name, feed_type, feed)
+            future_to_feed[future] = name
+
+        for future in concurrent.futures.as_completed(future_to_feed):
+            name = future_to_feed[future]
+            try:
+                items = future.result()
+                if items:
+                    all_items[name] = items
+            except Exception as e:
+                print(f"  [ERROR] Exception fetching {name}: {e}")
+
     return all_items
+
+
+# ============================================================================
+# LLM API 调用（带重试机制）
+# ============================================================================
+
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 5
+
+def call_llm_with_retry(
+    client: OpenAI,
+    messages: list[dict],
+    response_format: dict | None = None,
+) -> str | None:
+    for model in LLM_MODELS:
+        for attempt in range(MAX_RETRIES):
+            try:
+                kwargs: dict[str, Any] = {
+                    "model": model,
+                    "messages": messages,
+                }
+                if response_format:
+                    kwargs["response_format"] = response_format
+                
+                response = client.chat.completions.create(**kwargs)
+                return (response.choices[0].message.content or "").strip()
+            except Exception as e:
+                error_msg = str(e).lower()
+                is_rate_limit = "rate_limit" in error_msg or "429" in error_msg
+                is_timeout = "timeout" in error_msg or "timed out" in error_msg
+                is_unavailable = "unavailable" in error_msg
+                
+                if is_unavailable:
+                    print(f"  [FALLBACK] {model} unavailable, trying next model...")
+                    break
+                
+                if attempt < MAX_RETRIES - 1 and (is_rate_limit or is_timeout):
+                    delay = RETRY_BASE_DELAY * (2 ** attempt)
+                    print(f"  [RETRY] {model} attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
+                    time.sleep(delay)
+                else:
+                    print(f"  [FALLBACK] {model} failed after {attempt + 1} attempts, trying next model...")
+                    break
+    
+    print("  [ERROR] All LLM models failed")
+    return None
 
 
 # ============================================================================
@@ -232,50 +301,46 @@ def filter_items_with_gemini(
     
     prompt = FILTER_PROMPT.format(limit=limit, articles=articles_text)
     
-    try:
-        response = client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
-        )
-        response_text = (response.choices[0].message.content or "").strip()
-        
-        # 提取 JSON (如果 response_format 不生效，手动提取)
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
-        if not json_match:
-            print("  [WARN] Could not parse LLM response, returning original items")
-            return items[:limit]
-        
-        result = json.loads(json_match.group())
-        
-        selected_map = {item["index"]: item for item in result.get("selected", [])}
-        selected_indices = [item["index"] for item in result.get("selected", [])]
-        
-        # 根据索引提取文章并更新为中文信息
-        filtered = []
-        for idx in selected_indices:
-            if 0 <= idx < len(items):
-                item = items[idx].copy()
-                gemini_data = selected_map.get(idx, {})
-                
-                # 使用中文信息覆盖或新增字段
-                if gemini_data.get("title_cn"):
-                    item["title"] = gemini_data["title_cn"]
-                if gemini_data.get("reason_cn"):
-                    item["ai_reason"] = gemini_data["reason_cn"]
-                
-                filtered.append(item)
-        
-        return filtered[:limit]
+    response_text = call_llm_with_retry(
+        client,
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}
+    )
     
-    except Exception as e:
-        print(f"  [ERROR] LLM filtering failed: {e}")
-        # 出错时降级：返回原文前 N 条
+    if not response_text:
         return items[:limit]
+    
+    json_match = re.search(r"\{[\s\S]*\}", response_text)
+    if not json_match:
+        print("  [WARN] Could not parse LLM response, returning original items")
+        return items[:limit]
+    
+    try:
+        result = json.loads(json_match.group())
+    except json.JSONDecodeError:
+        print("  [WARN] Invalid JSON from LLM, returning original items")
+        return items[:limit]
+    
+    selected_map = {item["index"]: item for item in result.get("selected", [])}
+    selected_indices = [item["index"] for item in result.get("selected", [])]
+    
+    filtered = []
+    for idx in selected_indices:
+        if 0 <= idx < len(items):
+            item = items[idx].copy()
+            gemini_data = selected_map.get(idx, {})
+            
+            if gemini_data.get("title_cn"):
+                item["title"] = gemini_data["title_cn"]
+            if gemini_data.get("reason_cn"):
+                item["ai_reason"] = gemini_data["reason_cn"]
+            
+            filtered.append(item)
+    
+    return filtered[:limit]
 
 
 def generate_daily_summary(client: OpenAI, all_selected: dict[str, list[dict]]) -> str:
-    """生成日报整体综述"""
     content = ""
     for source, items in all_selected.items():
         for item in items:
@@ -286,17 +351,14 @@ def generate_daily_summary(client: OpenAI, all_selected: dict[str, list[dict]]) 
     if not content:
         return "今日暂无重点资讯。"
 
-    prompt = SUMMARY_PROMPT.format(content=content[:5000]) # 限制长度
+    prompt = SUMMARY_PROMPT.format(content=content[:5000])
     
-    try:
-        response = client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return (response.choices[0].message.content or "").strip() or "今日 AI 热点资讯汇总。"
-    except Exception as e:
-        print(f"  [WARN] Failed to generate summary: {e}")
-        return "今日 AI 热点资讯汇总。"
+    response_text = call_llm_with_retry(
+        client,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    return response_text or "今日 AI 热点资讯汇总。"
 
 
 def translate_github_trending(client: OpenAI, items: list[dict], limit: int = 20) -> list[dict]:
@@ -313,18 +375,20 @@ def translate_github_trending(client: OpenAI, items: list[dict], limit: int = 20
     
     prompt = GITHUB_TRANSLATE_PROMPT.format(projects=projects_text)
     
+    response_text = call_llm_with_retry(
+        client,
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}
+    )
+    
+    if not response_text:
+        return items
+    
+    json_match = re.search(r"\{[\s\S]*\}", response_text)
+    if not json_match:
+        return items
+    
     try:
-        response = client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
-        )
-        response_text = (response.choices[0].message.content or "").strip()
-        
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
-        if not json_match:
-            return items
-        
         result = json.loads(json_match.group())
         translated_map = {t["index"]: t for t in result.get("translated", [])}
         
@@ -335,8 +399,7 @@ def translate_github_trending(client: OpenAI, items: list[dict], limit: int = 20
                 item["ai_reason"] = t.get("ai_reason", "")
         
         return items
-    except Exception as e:
-        print(f"  [ERROR] GitHub translate failed: {e}")
+    except (json.JSONDecodeError, KeyError):
         return items
 
 
@@ -353,18 +416,20 @@ def translate_huggingface_trending(client: OpenAI, items: list[dict], limit: int
     
     prompt = HUGGINGFACE_TRANSLATE_PROMPT.format(models=models_text)
     
+    response_text = call_llm_with_retry(
+        client,
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}
+    )
+    
+    if not response_text:
+        return items
+    
+    json_match = re.search(r"\{[\s\S]*\}", response_text)
+    if not json_match:
+        return items
+    
     try:
-        response = client.chat.completions.create(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
-        )
-        response_text = (response.choices[0].message.content or "").strip()
-        
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
-        if not json_match:
-            return items
-        
         result = json.loads(json_match.group())
         translated_map = {t["index"]: t for t in result.get("translated", [])}
         
@@ -375,8 +440,7 @@ def translate_huggingface_trending(client: OpenAI, items: list[dict], limit: int
                 item["ai_reason"] = t.get("ai_reason", "")
         
         return items
-    except Exception as e:
-        print(f"  [ERROR] HuggingFace translate failed: {e}")
+    except (json.JSONDecodeError, KeyError):
         return items
 
 
@@ -440,9 +504,12 @@ def save_daily_report(supabase: Client, report_content: str, summary: str = "") 
     try:
         existing = supabase.table("daily_reports").select("content, summary").eq("report_date", today).execute()
         
-        if existing.data:
-            old_content = existing.data[0].get("content", "") or ""
-            old_summary = existing.data[0].get("summary", "") or ""
+        # Cast data to a list of dicts to satisfy type checker
+        existing_data = cast(list[dict[str, Any]], existing.data)
+
+        if existing_data:
+            old_content = str(existing_data[0].get("content", "") or "")
+            old_summary = str(existing_data[0].get("summary", "") or "")
             
             existing_sources = set(re.findall(r"^## (.+)$", old_content, re.MULTILINE))
             new_sections = re.split(r"(?=^## )", report_content, flags=re.MULTILINE)
@@ -605,6 +672,15 @@ def main():
         client = init_llm()
         supabase = init_supabase()
         feeds, trending_config = load_feed_config()
+        
+        # Allow limiting feeds for testing
+        max_feeds = os.environ.get("MAX_FEEDS")
+        if max_feeds:
+            print(f"[TEST] Limiting to first {max_feeds} feeds")
+            feeds = feeds[:int(max_feeds)]
+            # Clear trending if testing speed
+            trending_config = {}
+
         print(f"  Loaded {len(feeds)} feed sources + {len(trending_config)} trending sources")
         ensure_tables_exist(supabase)
     except Exception as e:
@@ -619,15 +695,40 @@ def main():
         print("[WARN] No data fetched from any source")
     
     print()
-    print("[3/8] Filtering & Translating feeds with LLM...")
+    print("[3/8] Filtering & Translating feeds with LLM (Parallel)...")
     all_selected = {}
-    
-    for source, items in raw_data.items():
-        print(f"  Processing: {source} ({len(items)} items)")
-        selected = filter_items_with_gemini(client, items)
-        if selected:
-            all_selected[source] = selected
-            print(f"    Selected {len(selected)} items")
+
+    def process_source_with_llm(source_name: str, source_items: list[dict]) -> tuple[str, list[dict]]:
+        """Process a single source with LLM"""
+        print(f"  Processing: {source_name} ({len(source_items)} items)")
+        try:
+            # Re-initialize client for thread safety if needed, or pass it in
+            # OpenAI client is thread-safe, but we can also instantiate a new one if we see issues
+            local_client = init_llm() 
+            selected_items = filter_items_with_gemini(local_client, source_items)
+            return source_name, selected_items
+        except Exception as e:
+            print(f"  [ERROR] Failed to process {source_name}: {e}")
+            return source_name, []
+
+    # Use ThreadPoolExecutor for parallel LLM processing
+    # Limit workers to avoid Rate Limit errors (429) from API
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_source = {
+            executor.submit(process_source_with_llm, source, items): source 
+            for source, items in raw_data.items()
+        }
+        
+        for future in concurrent.futures.as_completed(future_to_source):
+            source = future_to_source[future]
+            try:
+                name, selected = future.result()
+                if selected:
+                    all_selected[name] = selected
+                    print(f"    Selected {len(selected)} items for {name}")
+            except Exception as e:
+                print(f"    [ERROR] Exception processing {source}: {e}")
+
     
     print()
     print("[4/8] Fetching trending data...")

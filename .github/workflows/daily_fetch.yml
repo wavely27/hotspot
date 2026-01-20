@@ -15,8 +15,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       
       - name: Set up Python
+
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -31,6 +34,7 @@ jobs:
       - name: Run daily fetcher
         env:
           MEGALLM_API_KEY: ${{ secrets.MEGALLM_API_KEY }}
+
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: python scripts/main.py
