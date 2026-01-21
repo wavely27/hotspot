@@ -16,13 +16,25 @@ import DailyReports from '../components/DailyReports.astro'
 				<h1>Hotspot</h1>
 				<p>AI 热点资讯聚合平台</p>
 				<nav class="nav-links">
+					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/daily/trending`} class="nav-link trending">
+						<span class="nav-icon">🔥</span>
+						热点速览
+					</a>
+					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/daily/tech`} class="nav-link tech">
+						<span class="nav-icon">💻</span>
+						技术前沿
+					</a>
+					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/daily/business`} class="nav-link business">
+						<span class="nav-icon">💼</span>
+						商业洞察
+					</a>
 					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/github`} class="nav-link">
 						<span class="nav-icon">⭐</span>
-						GitHub Trending
+						GitHub
 					</a>
 					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/huggingface`} class="nav-link hf">
 						<span class="nav-icon">🤗</span>
-						HuggingFace Trending
+						HuggingFace
 					</a>
 				</nav>
 			</header>
@@ -105,6 +117,10 @@ import DailyReports from '../components/DailyReports.astro'
 		color: #f97316;
 		box-shadow: 0 4px 12px rgba(249, 115, 22, 0.15);
 	}
+
+	.nav-link.trending:hover { border-color: #e11d48; color: #e11d48; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.15); }
+	.nav-link.tech:hover { border-color: #16a34a; color: #16a34a; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.15); }
+	.nav-link.business:hover { border-color: #ea580c; color: #ea580c; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.15); }
 
 	.nav-icon {
 		font-size: 1.1rem;

@@ -12,6 +12,8 @@ import json
 import os
 import concurrent.futures
 import time
+import difflib
+import uuid
 from typing import Any, cast
 from datetime import datetime, timezone
 from pathlib import Path
@@ -220,11 +222,20 @@ FILTER_PROMPT = """你是一个 AI 技术热点筛选助手。请从以下文章
     {{
       "index": 0,
       "title_cn": "中文标题",
-      "reason_cn": "中文推荐理由（作为该资讯的简短总结，50字以内）"
+      "reason_cn": "中文推荐理由（作为该资讯的简短总结，50字以内）",
+      "tags": ["trending", "tech"],
+      "keywords": ["关键词1", "关键词2"]
     }}
   ]
 }}
 ```
+
+tags 标签说明（可多选）：
+- trending: 热点速览 - 适合产品经理/创业者/泛科技爱好者（新产品发布、应用场景、有趣动态）
+- tech: 技术前沿 - 适合开发者/技术人员（开源项目、技术教程、API更新、技术突破）
+- business: 商业洞察 - 适合投资人/商业决策者（融资、并购、公司战略、市场分析）
+
+keywords: 提取 2-5 个核心关键词（如：GPT-5、OpenAI、多模态、开源）
 
 只返回 JSON，不要其他内容。index 是文章在列表中的索引（从 0 开始）。
 """
@@ -281,6 +292,85 @@ HUGGINGFACE_TRANSLATE_PROMPT = """请为以下 HuggingFace 热门模型生成中
 """
 
 
+def calculate_similarity(s1: str, s2: str) -> float:
+    """计算两个字符串的相似度"""
+    return difflib.SequenceMatcher(None, s1, s2).ratio()
+
+def deduplicate_items(items: list[dict], threshold: float = 0.6) -> list[dict]:
+    """
+    对热点进行去重和聚合
+    
+    Args:
+        items: 热点列表
+        threshold: 相似度阈值 (0.0 - 1.0)
+    
+    Returns:
+        处理后的热点列表（包含 duplicate_group 信息）
+    """
+    if not items:
+        return []
+    
+    # 按来源分组，避免同一来源内部去重（假设同一来源不会发重复内容）
+    # 但这里我们要跨来源去重
+    
+    # 结果列表
+    processed_items = []
+    
+    # 记录已处理的索引
+    processed_indices = set()
+    
+    for i in range(len(items)):
+        if i in processed_indices:
+            continue
+            
+        current_item = items[i]
+        current_item["duplicate_group"] = str(uuid.uuid4())
+        current_item["is_primary"] = True
+        current_item["similarity_score"] = 0
+        
+        # 查找重复项
+        duplicates = []
+        for j in range(i + 1, len(items)):
+            if j in processed_indices:
+                continue
+                
+            compare_item = items[j]
+            
+            # 比较标题相似度
+            title_sim = calculate_similarity(current_item["title"], compare_item["title"])
+            
+            # 如果标题相似度高，视为重复
+            if title_sim >= threshold:
+                duplicates.append({
+                    "index": j,
+                    "score": title_sim,
+                    "item": compare_item
+                })
+        
+        # 处理重复项
+        for dup in duplicates:
+            idx = dup["index"]
+            processed_indices.add(idx)
+            
+            dup_item = dup["item"]
+            dup_item["duplicate_group"] = current_item["duplicate_group"]
+            dup_item["is_primary"] = False
+            dup_item["similarity_score"] = dup["score"]
+            dup_item["duplicate_of"] = current_item["url"] # 逻辑上指向主条目，实际存储时需要先存主条目获取ID，或者仅用 group ID 关联
+            
+            processed_items.append(dup_item)
+            
+            # 合并标签和关键词
+            if "tags" in dup_item:
+                current_item["tags"] = list(set(current_item.get("tags", []) + dup_item["tags"]))
+            if "keywords" in dup_item:
+                current_item["keywords"] = list(set(current_item.get("keywords", []) + dup_item["keywords"]))
+
+        processed_indices.add(i)
+        processed_items.append(current_item)
+        
+    return processed_items
+
 def filter_items_with_gemini(
     client: OpenAI,
     items: list[dict],
@@ -334,11 +424,102 @@ def filter_items_with_gemini(
                 item["title"] = gemini_data["title_cn"]
             if gemini_data.get("reason_cn"):
                 item["ai_reason"] = gemini_data["reason_cn"]
+            if gemini_data.get("tags"):
+                item["tags"] = gemini_data["tags"]
+            if gemini_data.get("keywords"):
+                item["keywords"] = gemini_data["keywords"]
             
             filtered.append(item)
     
     return filtered[:limit]
 
+
+ANALYSIS_PROMPT = """请根据以下今日 AI 热点新闻，生成一份深度的日报分析。
+
+热点列表：
+{content}
+
+请以 JSON 格式返回结果，包含以下字段：
+1. focus_events: 挑选 1-3 个最重要的焦点事件，进行深度解读。
+2. overview: 今日整体趋势综述（100字左右）。
+3. keywords: 提取今日所有资讯的核心关键词及其热度（出现频率/重要性，1-10分）。
+
+JSON 格式如下：
+```json
+{{
+  "focus_events": [
+    {{
+      "title": "事件标题",
+      "summary": "事件简述",
+      "why": "发生原因/背景（为什么重要？）",
+      "impact": "后续影响/行业意义"
+    }}
+  ],
+  "overview": "今日 AI 领域整体呈现...趋势，其中...",
+  "keywords": {{
+    "关键词1": 10,
+    "关键词2": 8,
+    "关键词3": 5
+  }}
+}}
+```
+
+只返回 JSON，不要其他内容。
+"""
+
+def generate_daily_analysis(client: OpenAI, all_selected: dict[str, list[dict]]) -> dict | None:
+    """生成每日深度分析"""
+    content = ""
+    for source, items in all_selected.items():
+        for item in items:
+            title = item.get("title", "")
+            reason = item.get("ai_reason", "")
+            tags = ",".join(item.get("tags", []))
+            content += f"- [{tags}] {title}: {reason}\n"
+    
+    if not content:
+        return None
+
+    prompt = ANALYSIS_PROMPT.format(content=content[:8000]) # 增加上下文长度
+    
+    response_text = call_llm_with_retry(
+        client,
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}
+    )
+    
+    if not response_text:
+        return None
+    
+    json_match = re.search(r"\{[\s\S]*\}", response_text)
+    if not json_match:
+        return None
+        
+    try:
+        return json.loads(json_match.group())
+    except json.JSONDecodeError:
+        return None
+
+def upsert_daily_analysis(supabase: Client, analysis_data: dict) -> bool:
+    """保存每日深度分析"""
+    if not analysis_data:
+        return False
+        
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    data = {
+        "report_date": today,
+        "focus_events": analysis_data.get("focus_events", []),
+        "overview": analysis_data.get("overview", ""),
+        "keywords": analysis_data.get("keywords", {})
+    }
+    
+    try:
+        supabase.table("daily_analysis").upsert(data, on_conflict="report_date").execute()
+        return True
+    except Exception as e:
+        print(f"  [ERROR] Failed to save daily analysis: {e}")
+        return False
 
 def generate_daily_summary(client: OpenAI, all_selected: dict[str, list[dict]]) -> str:
     content = ""
@@ -480,6 +661,11 @@ def upsert_hotspots(supabase: Client, items: list[dict], source: str) -> int:
             "url": item["url"],
             "summary": item.get("ai_reason") or item.get("summary", ""), # 优先使用 AI 生成的中文理由
             "source": source,
+            "tags": item.get("tags", []),
+            "keywords": item.get("keywords", []),
+            "duplicate_group": item.get("duplicate_group"),
+            "is_primary": item.get("is_primary", True),
+            "similarity_score": item.get("similarity_score", 0),
             "is_published": True,
         })
     
@@ -729,6 +915,26 @@ def main():
             except Exception as e:
                 print(f"    [ERROR] Exception processing {source}: {e}")
 
+    print()
+    print("[3.5/8] Deduplicating items across sources...")
+    # Flatten items for deduplication
+    flat_items = []
+    for source, items in all_selected.items():
+        for item in items:
+            item["_source_key"] = source
+            flat_items.append(item)
+            
+    if flat_items:
+        deduped_items = deduplicate_items(flat_items)
+        print(f"  Processed {len(flat_items)} items, found {len([i for i in deduped_items if not i.get('is_primary')])} duplicates")
+        
+        # Re-group by source
+        all_selected = {}
+        for item in deduped_items:
+            source = item.pop("_source_key")
+            if source not in all_selected:
+                all_selected[source] = []
+            all_selected[source].append(item)
     
     print()
     print("[4/8] Fetching trending data...")
@@ -755,14 +961,25 @@ def main():
         huggingface_items = translate_huggingface_trending(client, huggingface_items, limit=20)
     
     print()
-    print("[6/8] Generating daily summary...")
+    print("[6/8] Generating daily summary & analysis...")
     daily_summary = ""
+    daily_analysis = None
+    
     if all_selected:
         try:
-            daily_summary = generate_daily_summary(client, all_selected)
-            print(f"  Summary: {daily_summary}")
+            # 并行生成综述和深度分析
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                future_summary = executor.submit(generate_daily_summary, client, all_selected)
+                future_analysis = executor.submit(generate_daily_analysis, client, all_selected)
+                
+                daily_summary = future_summary.result()
+                print(f"  Summary: {daily_summary}")
+                
+                daily_analysis = future_analysis.result()
+                if daily_analysis:
+                    print(f"  Analysis generated: {len(daily_analysis.get('focus_events', []))} focus events")
         except Exception as e:
-            print(f"  [WARN] Skipped summary generation: {e}")
+            print(f"  [WARN] Skipped summary/analysis generation: {e}")
     
     print()
     print("[7/8] Saving to database...")
@@ -772,6 +989,10 @@ def main():
         count = upsert_hotspots(supabase, items, source)
         total_saved += count
         print(f"  {source}: {count} records")
+    
+    if daily_analysis:
+        if upsert_daily_analysis(supabase, daily_analysis):
+            print("  Daily analysis saved successfully")
     
     if github_items:
         count = upsert_github_trending(supabase, github_items)

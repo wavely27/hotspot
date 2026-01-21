@@ -1,0 +1,271 @@
+---
+import { supabase } from '../lib/supabase';
+
+interface Props {
+  tag: string;
+  title: string;
+  description: string;
+}
+
+const { tag, title, description } = Astro.props;
+
+interface Hotspot {
+  id: string;
+  title: string;
+  url: string;
+  summary: string;
+  source: string;
+  created_at: string;
+  tags: string[];
+  duplicate_group?: string;
+  is_primary?: boolean;
+}
+
+let items: Hotspot[] = [];
+let error: string | null = null;
+
+if (supabase) {
+  try {
+    const { data, error: fetchError } = await supabase
+      .from('hotspots')
+      .select('*')
+      .contains('tags', [tag])
+      .eq('is_primary', true) // 只显示主条目
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (fetchError) {
+      error = fetchError.message;
+    } else {
+      items = data || [];
+    }
+  } catch (e) {
+    error = e instanceof Error ? e.message : 'Failed to fetch items';
+  }
+}
+
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  
+  if (hours < 24) {
+    return `${hours} 小时前`;
+  }
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+}
+---
+
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title} | Hotspot</title>
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <nav class="breadcrumb">
+            <a href={import.meta.env.BASE_URL}>← 返回首页</a>
+        </nav>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </header>
+
+      {error ? (
+        <div class="error-message">
+          <p>加载失败: {error}</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div class="empty-message">
+          <p>暂无相关内容</p>
+        </div>
+      ) : (
+        <div class="feed-list">
+          {items.map((item) => (
+            <article class="feed-item">
+              <div class="item-meta">
+                <span class="source-tag">{item.source}</span>
+                <time>{formatDate(item.created_at)}</time>
+              </div>
+              <h2>
+                <a href={item.url} target="_blank" rel="noopener">{item.title}</a>
+              </h2>
+              {item.summary && <p class="summary">{item.summary}</p>}
+              <div class="item-tags">
+                {item.tags?.map(t => (
+                  <span class={`tag ${t}`}>{t}</span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </main>
+    <script>
+      import { trackPageView, trackClick } from '../lib/analytics';
+      
+      trackPageView();
+
+      document.addEventListener('click', (e) => {
+        const target = (e.target as HTMLElement).closest('a');
+        if (target && target.href && target.target === '_blank') {
+           trackClick(target.href, undefined, 'tag_feed_click');
+        }
+      });
+    </script>
+  </body>
+</html>
+
+<style>
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #f9fafb;
+    color: #1f2937;
+    min-height: 100vh;
+  }
+
+  main {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  .page-header {
+    margin-bottom: 3rem;
+    text-align: center;
+  }
+  
+  .breadcrumb {
+    margin-bottom: 1.5rem;
+    text-align: left;
+  }
+
+  .breadcrumb a {
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.2s;
+  }
+
+  .breadcrumb a:hover {
+    color: #3b82f6;
+  }
+
+  h1 {
+    font-size: 2rem;
+    margin: 0 0 0.5rem 0;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .page-header p {
+    color: #6b7280;
+    font-size: 1.125rem;
+    margin: 0;
+  }
+
+  .feed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .feed-item {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .feed-item:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .item-meta {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 0.75rem;
+  }
+
+  .source-tag {
+    background: #f3f4f6;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    color: #4b5563;
+  }
+
+  .feed-item h2 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.25rem;
+    line-height: 1.4;
+  }
+
+  .feed-item h2 a {
+    color: #111827;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .feed-item h2 a:hover {
+    color: #2563eb;
+  }
+
+  .summary {
+    color: #4b5563;
+    line-height: 1.6;
+    margin: 0 0 1rem 0;
+    font-size: 0.95rem;
+  }
+
+  .item-tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    background: #eff6ff;
+    color: #3b82f6;
+  }
+
+  .tag.trending { background: #fff1f2; color: #e11d48; }
+  .tag.tech { background: #f0fdf4; color: #16a34a; }
+  .tag.business { background: #fff7ed; color: #ea580c; }
+  
+  .error-message, .empty-message {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: 12px;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+  }
+  
+  @media (max-width: 640px) {
+    .page-header h1 {
+        font-size: 1.75rem;
+    }
+    
+    .feed-item {
+        padding: 1.25rem;
+    }
+  }
+</style>

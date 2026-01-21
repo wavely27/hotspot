@@ -1,0 +1,218 @@
+---
+interface FocusEvent {
+  title: string;
+  summary: string;
+  why: string;
+  impact: string;
+}
+
+interface Keywords {
+  [key: string]: number;
+}
+
+interface Props {
+  analysis: {
+    focus_events: FocusEvent[];
+    overview: string;
+    keywords: Keywords;
+  };
+}
+
+const { analysis } = Astro.props;
+
+// 计算关键词最大权重用于标准化
+const maxWeight = Math.max(...Object.values(analysis.keywords || {}));
+---
+
+<section class="daily-analysis">
+  <div class="analysis-header">
+    <h2>🤖 AI 深度分析</h2>
+    <p class="overview">{analysis.overview}</p>
+  </div>
+
+  <div class="focus-events">
+    <h3>今日焦点</h3>
+    <div class="events-grid">
+      {analysis.focus_events?.map((event, index) => (
+        <div class="event-card">
+          <div class="event-number">0{index + 1}</div>
+          <h4>{event.title}</h4>
+          <p class="event-summary">{event.summary}</p>
+          <div class="analysis-points">
+            <div class="point">
+              <strong>为什么重要：</strong> {event.why}
+            </div>
+            <div class="point impact">
+              <strong>后续影响：</strong> {event.impact}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <div class="keywords-cloud">
+    <h3>热度关键词</h3>
+    <div class="cloud-container">
+      {Object.entries(analysis.keywords || {})
+        .sort(([, a], [, b]) => b - a)
+        .map(([keyword, weight]) => {
+          // 简单的字号计算
+          const fontSize = 0.8 + (weight / maxWeight) * 1.5;
+          const opacity = 0.6 + (weight / maxWeight) * 0.4;
+          return (
+            <span 
+              class="keyword-tag" 
+              style={`font-size: ${fontSize}rem; opacity: ${opacity}`}
+            >
+              {keyword}
+            </span>
+          );
+        })}
+    </div>
+  </div>
+</section>
+
+<style>
+  .daily-analysis {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+  }
+
+  .analysis-header {
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  h2 {
+    font-size: 1.8rem;
+    margin: 0 0 1rem 0;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .overview {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: #4b5563;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  h3 {
+    font-size: 1.4rem;
+    color: #1f2937;
+    margin: 0 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  h3::before {
+    content: "";
+    display: block;
+    width: 4px;
+    height: 1.4rem;
+    background: #3b82f6;
+    border-radius: 2px;
+  }
+
+  .events-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .event-card {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    border: 1px solid #e2e8f0;
+  }
+
+  .event-number {
+    position: absolute;
+    top: -10px;
+    right: 20px;
+    font-size: 3rem;
+    font-weight: 800;
+    color: #e2e8f0;
+    opacity: 0.5;
+    line-height: 1;
+  }
+
+  .event-card h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1.2rem;
+    color: #1e293b;
+    position: relative;
+    z-index: 1;
+  }
+
+  .event-summary {
+    color: #475569;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+    font-size: 0.95rem;
+  }
+
+  .analysis-points {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .point {
+    background: white;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border-left: 3px solid #3b82f6;
+    color: #334155;
+    line-height: 1.5;
+  }
+
+  .point.impact {
+    border-left-color: #8b5cf6;
+  }
+
+  .cloud-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    padding: 2rem;
+    background: #f8fafc;
+    border-radius: 12px;
+  }
+
+  .keyword-tag {
+    color: #3b82f6;
+    font-weight: 600;
+    transition: transform 0.2s;
+    cursor: default;
+  }
+
+  .keyword-tag:hover {
+    transform: scale(1.1);
+    color: #2563eb;
+  }
+
+  @media (max-width: 640px) {
+    .daily-analysis {
+      padding: 1.5rem;
+    }
+    
+    .events-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

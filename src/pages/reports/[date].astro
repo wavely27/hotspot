@@ -4,6 +4,7 @@
  * 动态路由：/reports/[date]
  */
 import { supabase } from '../../lib/supabase'
+import DailyAnalysis from '../../components/DailyAnalysis.astro';
 
 // 构建时生成所有静态路径
 export async function getStaticPaths() {
@@ -27,15 +28,30 @@ interface DailyReport {
   id: string
   report_date: string
   content: string
+  summary: string
   created_at: string
 }
 
+interface Hotspot {
+  id: string;
+  title: string;
+  url: string;
+  summary: string;
+  source: string;
+  tags: string[];
+  is_primary: boolean;
+  duplicate_group?: string;
+}
+
 let report: DailyReport | null = null
+let analysisData: any = null
+let hotspots: Hotspot[] = []
 let error: string | null = null
 
 if (supabase && date) {
   try {
-    const { data, error: fetchError } = await supabase
+    // 1. Fetch Daily Report (Markdown & Summary)
+    const { data: reportData, error: fetchError } = await supabase
       .from('daily_reports')
       .select('*')
       .eq('report_date', date)
@@ -44,40 +60,71 @@ if (supabase && date) {
     if (fetchError) {
       error = fetchError.message
     } else {
-      report = data
+      report = reportData
     }
+
+    // 2. Fetch Daily Analysis
+    const { data: analysis } = await supabase
+      .from('daily_analysis')
+      .select('*')
+      .eq('report_date', date)
+      .single()
+    
+    analysisData = analysis
+
+    // 3. Fetch Structured Hotspots
+    // 构造时间范围 (UTC)
+    const startDate = `${date}T00:00:00.000Z`
+    const endDate = `${date}T23:59:59.999Z`
+
+    const { data: hotspotsData } = await supabase
+      .from('hotspots')
+      .select('*')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+      .eq('is_primary', true) // 只获取主条目
+    
+    if (hotspotsData) {
+      hotspots = hotspotsData
+    }
+
   } catch (e) {
     error = e instanceof Error ? e.message : 'Failed to fetch report'
   }
 }
 
-// 解析 Markdown 内容为 HTML
+// 解析 Markdown 内容为 HTML (用于回退显示)
 function parseMarkdown(content: string): string {
   return content
-    // 标题
     .replace(/^### (\d+)\. \[([^\]]+)\]\(([^)]+)\)/gm, '<div class="report-item"><a href="$3" target="_blank" rel="noopener" class="report-link">$1. $2</a></div>')
     .replace(/^## (.+)$/gm, '<h3 class="report-source">$1</h3>')
     .replace(/^# (.+)$/gm, '<h2 class="report-title">$1</h2>')
-    // 引用
     .replace(/^> (.+)$/gm, '<blockquote class="report-quote">$1</blockquote>')
-    // 粗体
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    // 分隔线
     .replace(/^---$/gm, '<hr class="report-divider" />')
-    // 换行
     .replace(/\n\n/g, '<br/>')
 }
 
 // 格式化日期
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('zh-CN', {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     weekday: 'long'
   })
 }
+
+// 按标签分组
+const groupedHotspots = {
+  trending: hotspots.filter(h => h.tags?.includes('trending')),
+  tech: hotspots.filter(h => h.tags?.includes('tech')),
+  business: hotspots.filter(h => h.tags?.includes('business')),
+  other: hotspots.filter(h => !h.tags || (!h.tags.includes('trending') && !h.tags.includes('tech') && !h.tags.includes('business')))
+}
+
+const hasStructuredData = hotspots.length > 0
 ---
 
 <html lang="zh-CN">
@@ -112,23 +159,93 @@ function formatDate(dateStr: string): string {
             <time datetime={report.report_date}>{formatDate(report.report_date)}</time>
             <h1>AI 热点日报</h1>
           </header>
-          <div class="report-content" set:html={parseMarkdown(report.content)} />
+
+          <div class="report-body">
+            {/* 深度分析模块 */}
+            {analysisData && (
+              <DailyAnalysis analysis={analysisData} />
+            )}
+
+            {/* 结构化热点列表 */}
+            {hasStructuredData ? (
+              <div class="structured-content">
+                {groupedHotspots.trending.length > 0 && (
+                  <section class="tag-section">
+                    <h2 class="tag-title trending">🔥 热点速览</h2>
+                    <div class="hotspot-list">
+                      {groupedHotspots.trending.map((item, i) => (
+                        <div class="hotspot-item">
+                          <h3><a href={item.url} target="_blank">{i+1}. {item.title}</a></h3>
+                          {item.summary && <p>{item.summary}</p>}
+                          <span class="source-badge">{item.source}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {groupedHotspots.tech.length > 0 && (
+                  <section class="tag-section">
+                    <h2 class="tag-title tech">💻 技术前沿</h2>
+                    <div class="hotspot-list">
+                      {groupedHotspots.tech.map((item, i) => (
+                        <div class="hotspot-item">
+                          <h3><a href={item.url} target="_blank">{i+1}. {item.title}</a></h3>
+                          {item.summary && <p>{item.summary}</p>}
+                          <span class="source-badge">{item.source}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {groupedHotspots.business.length > 0 && (
+                  <section class="tag-section">
+                    <h2 class="tag-title business">💼 商业洞察</h2>
+                    <div class="hotspot-list">
+                      {groupedHotspots.business.map((item, i) => (
+                        <div class="hotspot-item">
+                          <h3><a href={item.url} target="_blank">{i+1}. {item.title}</a></h3>
+                          {item.summary && <p>{item.summary}</p>}
+                          <span class="source-badge">{item.source}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+                
+                {groupedHotspots.other.length > 0 && (
+                  <section class="tag-section">
+                    <h2 class="tag-title other">📰 其他资讯</h2>
+                    <div class="hotspot-list">
+                      {groupedHotspots.other.map((item, i) => (
+                        <div class="hotspot-item">
+                          <h3><a href={item.url} target="_blank">{i+1}. {item.title}</a></h3>
+                          {item.summary && <p>{item.summary}</p>}
+                          <span class="source-badge">{item.source}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            ) : (
+              // 回退到 Markdown 内容
+              <div class="report-content" set:html={parseMarkdown(report.content)} />
+            )}
+          </div>
         </article>
       )}
     </main>
     <script>
       import { trackPageView, trackClick } from '../../lib/analytics';
       
-      // 记录 PV
       trackPageView();
 
-      // 全局监听热点点击
       document.addEventListener('click', (e) => {
-        const target = (e.target as HTMLElement).closest('.report-link');
-        if (target) {
-          const url = (target as HTMLAnchorElement).href;
-          // 尝试从 DOM 结构或 data 属性获取 hotspot_id (目前暂时没有 hotspot_id，只记录 url)
-          trackClick(url, undefined, 'daily_report_detail');
+        const target = (e.target as HTMLElement).closest('a');
+        if (target && target.href && target.target === '_blank') {
+           trackClick(target.href, undefined, 'daily_report_detail');
         }
       });
     </script>
@@ -174,16 +291,6 @@ function formatDate(dateStr: string): string {
     border: 1px solid #e5e7eb;
   }
 
-  .error-message h1 {
-    color: #1f2937;
-    margin: 0 0 0.5rem 0;
-  }
-
-  .error-message p {
-    color: #6b7280;
-    margin: 0 0 1.5rem 0;
-  }
-
   .back-link {
     display: inline-block;
     padding: 0.75rem 1.5rem;
@@ -192,10 +299,6 @@ function formatDate(dateStr: string): string {
     text-decoration: none;
     border-radius: 8px;
     font-weight: 500;
-  }
-
-  .back-link:hover {
-    background: #2563eb;
   }
 
   .report-detail {
@@ -223,15 +326,70 @@ function formatDate(dateStr: string): string {
     font-size: 1.75rem;
   }
 
-  .report-content {
+  .report-body {
     padding: 2rem;
+  }
+
+  /* Structured Content Styles */
+  .tag-section {
+    margin-bottom: 3rem;
+  }
+
+  .tag-title {
+    font-size: 1.4rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #eee;
+    color: #1f2937;
+  }
+
+  .tag-title.trending { border-bottom-color: #e11d48; color: #e11d48; }
+  .tag-title.tech { border-bottom-color: #16a34a; color: #16a34a; }
+  .tag-title.business { border-bottom-color: #ea580c; color: #ea580c; }
+  
+  .hotspot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .hotspot-item h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    line-height: 1.4;
+  }
+
+  .hotspot-item h3 a {
+    color: #111827;
+    text-decoration: none;
+  }
+
+  .hotspot-item h3 a:hover {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+
+  .hotspot-item p {
+    color: #4b5563;
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .source-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+  }
+
+  /* Legacy Markdown Styles */
+  .report-content {
     line-height: 1.7;
   }
-
-  .report-content :global(h2.report-title) {
-    display: none;
-  }
-
+  
   .report-content :global(h3.report-source) {
     font-size: 1.25rem;
     color: #1f2937;
@@ -240,25 +398,13 @@ function formatDate(dateStr: string): string {
     border-bottom: 2px solid #3b82f6;
   }
 
-  .report-content :global(h3.report-source:first-of-type) {
-    margin-top: 0;
-  }
-
   .report-content :global(.report-item) {
     padding: 0.625rem 0;
   }
-
+  
   .report-content :global(.report-link) {
     color: #2563eb;
     text-decoration: none;
-    font-weight: 500;
-    font-size: 1rem;
-    transition: color 0.2s;
-  }
-
-  .report-content :global(.report-link:hover) {
-    color: #1d4ed8;
-    text-decoration: underline;
   }
 
   .report-content :global(.report-quote) {
@@ -267,43 +413,11 @@ function formatDate(dateStr: string): string {
     background: #f9fafb;
     border-left: 4px solid #3b82f6;
     color: #4b5563;
-    font-size: 0.95rem;
-    font-style: normal;
-    border-radius: 0 4px 4px 0;
-    line-height: 1.6;
-  }
-
-  .report-content :global(.report-divider) {
-    border: none;
-    border-top: 1px solid #e5e7eb;
-    margin: 1.5rem 0;
-  }
-
-  .report-content :global(br) {
-    display: block;
-    content: "";
-    margin: 0.25rem 0;
   }
 
   @media (max-width: 640px) {
-    main {
-      padding: 1rem 0.5rem;
-    }
-
-    .report-header {
+    .report-body {
       padding: 1.5rem;
-    }
-
-    .report-header h1 {
-      font-size: 1.5rem;
-    }
-
-    .report-content {
-      padding: 1.5rem;
-    }
-
-    .report-content :global(h3.report-source) {
-      font-size: 1.125rem;
     }
   }
 </style>
