@@ -33,6 +33,7 @@ from fetchers import (
     fetch_github_trending_ai,
     fetch_huggingface_trending,
 )
+from bailian_client import get_llm_manager
 
 # ============================================================================
 # 配置
@@ -44,26 +45,13 @@ MAX_ITEMS_PER_SOURCE = int(os.environ.get("MAX_ITEMS_PER_SOURCE", 10))
 # 每个源抓取的原始条目数（用于筛选）
 FETCH_ITEMS_PER_SOURCE = int(os.environ.get("FETCH_ITEMS_PER_SOURCE", 30))
 
-LLM_MODELS = [
-    "deepseek-ai/deepseek-v3.1",
-    "deepseek-ai/deepseek-v3.1-terminus",
-    "qwen/qwen3-next-80b-a3b-instruct",
-]
-
 # ============================================================================
 # 初始化
 # ============================================================================
 
-def init_llm() -> OpenAI:
-    """初始化 OpenAI 客户端 (MegaLLM)"""
-    api_key = os.environ.get("MEGALLM_API_KEY")
-    if not api_key:
-        raise ValueError("MEGALLM_API_KEY environment variable is required")
-    
-    return OpenAI(
-        base_url="https://ai.megallm.io/v1",
-        api_key=api_key
-    )
+def init_llm():
+    """初始化 LLM 客户端管理器（百炼 + MegaLLM 备选）"""
+    return get_llm_manager()
 
 
 def init_supabase() -> Client:
@@ -157,46 +145,12 @@ def fetch_all_feeds(feeds: list[dict]) -> dict[str, list[dict]]:
 # LLM API 调用（带重试机制）
 # ============================================================================
 
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 5
-
 def call_llm_with_retry(
-    client: OpenAI,
+    client,
     messages: list[dict],
     response_format: dict | None = None,
 ) -> str | None:
-    for model in LLM_MODELS:
-        for attempt in range(MAX_RETRIES):
-            try:
-                kwargs: dict[str, Any] = {
-                    "model": model,
-                    "messages": messages,
-                }
-                if response_format:
-                    kwargs["response_format"] = response_format
-                
-                response = client.chat.completions.create(**kwargs)
-                return (response.choices[0].message.content or "").strip()
-            except Exception as e:
-                error_msg = str(e).lower()
-                is_rate_limit = "rate_limit" in error_msg or "429" in error_msg
-                is_timeout = "timeout" in error_msg or "timed out" in error_msg
-                is_unavailable = "unavailable" in error_msg
-                
-                if is_unavailable:
-                    print(f"  [FALLBACK] {model} unavailable, trying next model...")
-                    break
-                
-                if attempt < MAX_RETRIES - 1 and (is_rate_limit or is_timeout):
-                    delay = RETRY_BASE_DELAY * (2 ** attempt)
-                    print(f"  [RETRY] {model} attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
-                    time.sleep(delay)
-                else:
-                    print(f"  [FALLBACK] {model} failed after {attempt + 1} attempts, trying next model...")
-                    break
-    
-    print("  [ERROR] All LLM models failed")
-    return None
+    return client.call_with_retry(messages, response_format)
 
 
 # ============================================================================
@@ -372,7 +326,7 @@ def deduplicate_items(items: list[dict], threshold: float = 0.6) -> list[dict]:
     return processed_items
 
 def filter_items_with_gemini(
-    client: OpenAI,
+    client,
     items: list[dict],
     limit: int = MAX_ITEMS_PER_SOURCE
 ) -> list[dict]:
@@ -467,7 +421,7 @@ JSON 格式如下：
 只返回 JSON，不要其他内容。
 """
 
-def generate_daily_analysis(client: OpenAI, all_selected: dict[str, list[dict]]) -> dict | None:
+def generate_daily_analysis(client, all_selected: dict[str, list[dict]]) -> dict | None:
     """生成每日深度分析"""
     content = ""
     for source, items in all_selected.items():
@@ -521,7 +475,7 @@ def upsert_daily_analysis(supabase: Client, analysis_data: dict) -> bool:
         print(f"  [ERROR] Failed to save daily analysis: {e}")
         return False
 
-def generate_daily_summary(client: OpenAI, all_selected: dict[str, list[dict]]) -> str:
+def generate_daily_summary(client, all_selected: dict[str, list[dict]]) -> str:
     content = ""
     for source, items in all_selected.items():
         for item in items:
@@ -542,7 +496,7 @@ def generate_daily_summary(client: OpenAI, all_selected: dict[str, list[dict]]) 
     return response_text or "今日 AI 热点资讯汇总。"
 
 
-def translate_github_trending(client: OpenAI, items: list[dict], limit: int = 20) -> list[dict]:
+def translate_github_trending(client, items: list[dict], limit: int = 20) -> list[dict]:
     if not items:
         return []
     
@@ -584,7 +538,7 @@ def translate_github_trending(client: OpenAI, items: list[dict], limit: int = 20
         return items
 
 
-def translate_huggingface_trending(client: OpenAI, items: list[dict], limit: int = 20) -> list[dict]:
+def translate_huggingface_trending(client, items: list[dict], limit: int = 20) -> list[dict]:
     if not items:
         return []
     
