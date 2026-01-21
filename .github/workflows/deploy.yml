@@ -8,9 +8,11 @@ on:
   # 允许手动触发
   workflow_dispatch:
   
-  # (可选) 当数据抓取完成后触发
-  # repository_dispatch:
-  #   types: [data-updated]
+  # 当数据抓取完成后触发
+  workflow_run:
+    workflows: ["Daily AI Hotspot Update"]
+    types:
+      - completed
 
 # 设置权限
 permissions:
@@ -25,6 +27,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
