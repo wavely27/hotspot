@@ -17,15 +17,186 @@ from openai import OpenAI
 # ============================================================================
 
 # 百炼模型列表（按优先级排序）
+# 优先级策略：本地验证可用的模型 > 常用模型 > 其他备选模型
 BAILIAN_MODELS = [
-    "qwen-long-latest",
-    "qwen-long-2025-01-25",
-    "qwen-coder-plus",
-    "qwen-coder-plus-1106", 
-    "qwen-coder-plus-latest",
-    "qwen-plus",
+    # 第一优先级：本地验证 100% 可用的模型
     "qwen-turbo",
+    "qwen-turbo-latest",
+    "qwen2.5-7b-instruct",
+    "qwen2.5-14b-instruct",
+    "qwen-plus",
+    
+    # 第二优先级：常用高性能模型
+    "qwen-plus-latest",
+    "qwen-max-latest",
     "qwen-max",
+    "qwen3-max",
+    "qwen-long-latest",
+    
+    # 第三优先级：其他备选模型
+    "qwen-long-2025-01-25",
+    "qwen-long",
+    "qwen-coder-plus",
+    "qwen-coder-plus-latest",
+    "qwen-coder-plus-1106",
+    "qwen-coder-turbo-latest",
+    "qwen-coder-turbo-0919",
+    "qwen-coder-turbo",
+    "qwen-max-2025-01-25",
+    "qwen-max-0919",
+    "qwen3-max-preview",
+    "qwen3-max-2025-09-23",
+    "qwen-max-0428",
+    "qwen-max-0403",
+    "qwen-plus-character",
+    "qwen-plus-2025-12-01",
+    "qwen-plus-2025-09-11",
+    "qwen-plus-2025-07-28",
+    "qwen-plus-2025-07-14",
+    "qwen-plus-2025-04-28",
+    "qwen-plus-2025-01-25",
+    "qwen-plus-1220",
+    "qwen-plus-1127",
+    "qwen-plus-1125",
+    "qwen-plus-0919",
+    "qwen-plus-0806",
+    "qwen-plus-0723",
+    "qwen-plus-0112",
+    "qwen-turbo-2025-07-15",
+    "qwen-turbo-2025-04-28",
+    "qwen-turbo-2025-02-11",
+    "qwen-turbo-1101",
+    "qwen-turbo-0919",
+    "qwen-turbo-0624",
+    "qwen-math-plus-latest",
+    "qwen-math-plus",
+    "qwen-math-plus-0919",
+    "qwen-math-plus-0816",
+    "qwen-math-turbo-latest",
+    "qwen-math-turbo-0919",
+    "qwen-math-turbo",
+    "qwen1.5-110b-chat",
+    "qwen1.5-72b-chat",
+    "qwen1.5-32b-chat",
+    "qwen1.5-14b-chat",
+    "qwen1.5-7b-chat",
+    "qwen2-72b-instruct",
+    "qwen2-57b-a14b-instruct",
+    "qwen2-7b-instruct",
+    "qwen2.5-72b-instruct",
+    "qwen2.5-32b-instruct",
+    "qwen2.5-14b-instruct-1m",
+    "qwen2.5-7b-instruct-1m",
+    "qwen2.5-3b-instruct",
+    "qwen2.5-1.5b-instruct",
+    "qwen2.5-0.5b-instruct",
+    "qwen2.5-math-72b-instruct",
+    "qwen2.5-math-7b-instruct",
+    "qwen2.5-coder-32b-instruct",
+    "qwen2.5-coder-14b-instruct",
+    "qwen2.5-coder-7b-instruct",
+    "qwen-vl-max-latest",
+    "qwen-vl-max",
+    "qwen-vl-max-2025-08-13",
+    "qwen-vl-max-2025-04-08",
+    "qwen-vl-max-2025-04-02",
+    "qwen-vl-max-2025-01-25",
+    "qwen-vl-max-1230",
+    "qwen-vl-max-1119",
+    "qwen-vl-max-1030",
+    "qwen-vl-max-0809",
+    "qwen-vl-plus-latest",
+    "qwen-vl-plus",
+    "qwen-vl-plus-2025-08-15",
+    "qwen-vl-plus-2025-05-07",
+    "qwen-vl-plus-2025-01-25",
+    "qwen-vl-plus-0809",
+    "qwen-vl-plus-0102",
+    "qwen-vl-ocr-latest",
+    "qwen-vl-ocr",
+    "qwen-vl-ocr-2025-11-20",
+    "qwen-vl-ocr-2025-08-28",
+    "qwen-vl-ocr-2025-04-13",
+    "qwen-vl-ocr-1028",
+    "qwen2-vl-72b-instruct",
+    "qwen2-vl-7b-instruct",
+    "qwen2-vl-2b-instruct",
+    "qwen2.5-vl-32b-instruct",
+    "qwen2.5-vl-7b-instruct",
+    "qwen2.5-vl-3b-instruct",
+    "qvq-max-latest",
+    "qvq-max",
+    "qvq-max-2025-05-15",
+    "qvq-max-2025-03-25",
+    "qvq-72b-preview",
+    "qvq-plus-latest",
+    "qvq-plus",
+    "qvq-plus-2025-05-15",
+    "qwq-plus-latest",
+    "qwq-plus",
+    "qwq-plus-2025-03-05",
+    "qwq-32b-preview",
+    "qwq-32b",
+    "qwen3-235b-a22b-instruct-2507",
+    "qwen3-235b-a22b-thinking-2507",
+    "qwen3-235b-a22b",
+    "qwen3-next-80b-a3b-instruct",
+    "qwen3-next-80b-a3b-thinking",
+    "qwen3-32b",
+    "qwen3-30b-a3b-instruct-2507",
+    "qwen3-30b-a3b-thinking-2507",
+    "qwen3-30b-a3b",
+    "qwen3-14b",
+    "qwen3-8b",
+    "qwen3-4b",
+    "qwen3-1.7b",
+    "qwen3-0.6b",
+    "qwen3-coder-480b-a35b-instruct",
+    "qwen3-coder-plus",
+    "qwen3-coder-plus-2025-09-23",
+    "qwen3-coder-plus-2025-07-22",
+    "qwen3-coder-flash",
+    "qwen3-coder-flash-2025-07-28",
+    "qwen3-coder-30b-a3b-instruct",
+    "qwen3-vl-235b-a22b-thinking",
+    "qwen3-vl-235b-a22b-instruct",
+    "qwen3-vl-plus",
+    "qwen3-vl-plus-2025-12-19",
+    "qwen3-vl-plus-2025-09-23",
+    "qwen3-vl-30b-a3b-thinking",
+    "qwen3-vl-30b-a3b-instruct",
+    "qwen3-vl-flash",
+    "qwen3-vl-flash-2025-10-15",
+    "qwen3-vl-8b-thinking",
+    "qwen3-vl-8b-instruct",
+    "qwen-flash",
+    "qwen-flash-2025-07-28",
+    "gui-plus",
+    "qwen-mt-plus",
+    "qwen-mt-turbo",
+    "qwen-mt-flash",
+    "qwen-mt-lite",
+    "tongyi-intent-detect-v3",
+    "opennlu-v1",
+    "deepseek-v3.2-exp",
+    "deepseek-v3.2",
+    "deepseek-v3.1",
+    "deepseek-v3",
+    "deepseek-r1",
+    "deepseek-r1-0528",
+    "deepseek-r1-distill-qwen-32b",
+    "deepseek-r1-distill-qwen-14b",
+    "deepseek-r1-distill-qwen-7b",
+    "deepseek-r1-distill-llama-70b",
+    "wan2.2-kf2v-flash",
+    "glm-4.7",
+    "glm-4.6",
+    "glm-4.5",
+    "glm-4.5-air",
+    "llama-4-maverick-17b-128e-instruct",
+    "llama-4-scout-17b-16e-instruct",
+    "Moonshot-Kimi-K2-Instruct",
+    "kimi-k2-thinking",
 ]
 
 # MegaLLM 备选模型列表
@@ -68,6 +239,11 @@ class LLMClientManager:
         if not api_key:
             print("[WARN] DASHSCOPE_API_KEY not found, Bailian will be disabled")
             return None
+        
+        # 打印 Key 的前后4位用于诊断（安全起见不打印完整 Key）
+        key_prefix = api_key[:7] if len(api_key) > 10 else "***"
+        key_suffix = api_key[-4:] if len(api_key) > 10 else "***"
+        print(f"[INFO] Using Bailian API Key: {key_prefix}...{key_suffix}")
         
         return OpenAI(
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -124,8 +300,8 @@ class LLMClientManager:
         self,
         messages: list[dict],
         response_format: dict | None = None,
-        max_retries: int = 3,
-        retry_delay: int = 5,
+        max_retries: int = 2,
+        retry_delay: int = 3,
     ) -> str | None:
         """
         调用 LLM API，支持自动模型切换和重试
@@ -133,8 +309,8 @@ class LLMClientManager:
         Args:
             messages: 消息列表
             response_format: 响应格式（用于 JSON mode）
-            max_retries: 每个模型的最大重试次数
-            retry_delay: 重试延迟（秒）
+            max_retries: 每个模型的最大重试次数（默认 2，优化以减少总耗时）
+            retry_delay: 重试延迟基数（默认 3 秒，使用指数退避）
         
         Returns:
             LLM 响应内容，失败返回 None
@@ -174,6 +350,12 @@ class LLMClientManager:
                         print(f"[LLM] Quota/Rate limit error with {model}: {e}")
                         self.mark_model_failed(model)
                         break  # 直接切换到下一个模型
+                    
+                    # 检查是否为权限错误（免费账户访问付费模型）
+                    if "403" in str(e) or "permission" in error_msg or "insufficient_permissions" in error_msg:
+                        print(f"[LLM] Permission denied (free tier limitation): {model}")
+                        self.mark_model_failed(model)
+                        break
                     
                     # 检查是否为模型不可用错误
                     if "unavailable" in error_msg or "not found" in error_msg:

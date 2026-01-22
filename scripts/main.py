@@ -852,8 +852,9 @@ def main():
             return source_name, []
 
     # Use ThreadPoolExecutor for parallel LLM processing
-    # Limit workers to avoid Rate Limit errors (429) from API
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    # 串行处理以避免触发 API 限流（百炼 API 对并发有严格限制）
+    # 修改原因：并发请求会触发 429 错误，导致大量重试和模型切换，严重延长执行时间
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future_to_source = {
             executor.submit(process_source_with_llm, source, items): source 
             for source, items in raw_data.items()
