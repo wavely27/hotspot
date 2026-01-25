@@ -586,9 +586,8 @@ def translate_huggingface_trending(client, items: list[dict], limit: int = 20) -
 def ensure_tables_exist(supabase: Client) -> None:
     """确保所需的表存在，如果不存在则跳过日报保存"""
     try:
-        # 检查 daily_reports 表是否存在
-        supabase.table("daily_reports").select("id").limit(1).execute()
-        # print("  daily_reports table: OK")
+         # 检查 daily_reports 表是否存在
+         supabase.table("daily_reports").select("id").limit(1).execute()
     except Exception:
         print("  [WARN] daily_reports table not found. Daily report will not be saved.")
         print("  To create it, run this SQL in Supabase Dashboard:")

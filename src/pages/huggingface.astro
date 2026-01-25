@@ -1,5 +1,7 @@
 ---
 import { supabase } from '../lib/supabase'
+import Navigation from '../components/Navigation.astro';
+import HuggingFaceTrendList from '../components/HuggingFaceTrendList';
 
 interface HuggingFaceModel {
   model_id: string
@@ -35,18 +37,7 @@ if (supabase) {
     error = e instanceof Error ? e.message : 'Failed to fetch models'
   }
 } else {
-  error = 'Supabase not configured'
-}
-
-// Helper to format numbers (e.g. 1.2k)
-function formatNumber(num: number): string {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M'
-  }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'k'
-  }
-  return num.toString()
+  // Similarly, might fail in dev if env not set
 }
 ---
 
@@ -60,6 +51,7 @@ function formatNumber(num: number): string {
   </head>
   <body>
     <main>
+      <Navigation />
       <header class="hero">
         <h1>HuggingFace Trending</h1>
         <p>热门 AI 模型实时榜单</p>
@@ -69,60 +61,8 @@ function formatNumber(num: number): string {
         <div class="error-message">
           <p>加载失败: {error}</p>
         </div>
-      ) : models.length === 0 ? (
-        <div class="empty-message">
-          <p>暂无趋势数据</p>
-        </div>
       ) : (
-        <div class="models-grid">
-          {models.map((model) => (
-            <a href={model.url} target="_blank" rel="noopener noreferrer" class="model-card">
-              <div class="card-header">
-                <h3 class="model-name" title={model.model_id}>{model.model_id}</h3>
-                <div class="metrics">
-                  <span class="metric" title="Trending Score">
-                    🔥 {Math.round(model.trending_score)}
-                  </span>
-                </div>
-              </div>
-
-              <div class="card-badges">
-                {model.pipeline_tag && (
-                  <span class="badge pipeline-badge">
-                    {model.pipeline_tag}
-                  </span>
-                )}
-                <span class="metric-badge" title="Likes">
-                  ❤️ {formatNumber(model.likes)}
-                </span>
-                <span class="metric-badge" title="Downloads">
-                  ⬇️ {formatNumber(model.downloads)}
-                </span>
-              </div>
-              
-              <div class="card-body">
-                {model.description_cn && (
-                  <p class="description">{model.description_cn}</p>
-                )}
-                
-                {model.ai_reason && (
-                  <div class="ai-reason">
-                    <span class="reason-icon">💡</span>
-                    <p>{model.ai_reason}</p>
-                  </div>
-                )}
-              </div>
-
-              {model.tags && model.tags.length > 0 && (
-                <div class="tags-container">
-                  {model.tags.slice(0, 5).map(tag => (
-                    <span class="tag">{tag}</span>
-                  ))}
-                </div>
-              )}
-            </a>
-          ))}
-        </div>
+        <HuggingFaceTrendList client:load initialModels={models} />
       )}
     </main>
 
@@ -147,227 +87,8 @@ function formatNumber(num: number): string {
     max-width: 1400px; /* Slightly wider for the grid */
     margin: 0 auto;
   }
-
-  /* Hero Section */
-  .hero {
-    text-align: center;
-    padding: 3rem 0 2rem;
-    margin-bottom: 2rem;
-  }
-
-  .hero h1 {
-    font-size: 3rem;
-    margin: 0 0 0.5rem 0;
-    /* HuggingFace Gradient: #FF9D00 to #FFD21E, slightly tweaked for text */
-    background: linear-gradient(135deg, #FF9D00 0%, #FF512F 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -0.02em;
-    font-weight: 800;
-  }
-
-  .hero p {
-    color: #6b7280;
-    font-size: 1.25rem;
-    margin: 0;
-    font-weight: 400;
-  }
-
-  /* Status Messages */
-  .error-message,
-  .empty-message {
-    text-align: center;
-    padding: 3rem;
-    background: #fff;
-    border-radius: 16px;
-    color: #6b7280;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    max-width: 600px;
-    margin: 0 auto;
-  }
-
-  .error-message {
-    background: #fff5f5;
-    color: #c53030;
-    border: 1px solid #fed7d7;
-  }
-
-  /* Grid Layout */
-  .models-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 1.5rem;
-  }
-
-  /* Model Card */
-  .model-card {
-    display: flex;
-    flex-direction: column;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    padding: 1.5rem;
-    text-decoration: none;
-    color: inherit;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-    height: 100%;
-  }
-
-  .model-card:hover {
-    border-color: #FF9D00;
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px -8px rgba(255, 157, 0, 0.15);
-  }
-
-  /* Card Header */
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1rem;
-    gap: 1rem;
-  }
-
-  .model-name {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: #111827;
-    word-break: break-all;
-    line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .metrics {
-    flex-shrink: 0;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #FF6B00;
-    background: #fff7ed;
-    padding: 0.25rem 0.5rem;
-    border-radius: 6px;
-  }
-
-  /* Badges Row */
-  .card-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    align-items: center;
-  }
-
-  .badge {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.625rem;
-    border-radius: 9999px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-  }
-
-  .pipeline-badge {
-    background: #eff6ff;
-    color: #2563eb;
-    border: 1px solid #dbeafe;
-  }
-
-  .metric-badge {
-    font-size: 0.8125rem;
-    color: #6b7280;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  /* Card Body */
-  .card-body {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .description {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: #4b5563;
-    line-height: 1.6;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .ai-reason {
-    background: #f9fafb;
-    padding: 0.75rem;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    color: #374151;
-    display: flex;
-    gap: 0.5rem;
-    align-items: flex-start;
-    border: 1px dashed #e5e7eb;
-  }
-
-  .reason-icon {
-    flex-shrink: 0;
-    font-size: 1rem;
-    margin-top: 0.1rem;
-  }
-
-  .ai-reason p {
-    margin: 0;
-    line-height: 1.5;
-  }
-
-  /* Tags */
-  .tags-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: auto; /* Push to bottom */
-    padding-top: 1rem;
-    border-top: 1px solid #f3f4f6;
-  }
-
-  .tag {
-    font-size: 0.75rem;
-    color: #6b7280;
-    background: #f3f4f6;
-    padding: 0.125rem 0.5rem;
-    border-radius: 4px;
-    transition: all 0.2s;
-  }
-
-  .model-card:hover .tag {
-    background: #e5e7eb;
-  }
-
-  /* Responsive */
-  @media (max-width: 640px) {
-    main {
-      padding: 1rem;
-    }
-
-    .hero h1 {
-      font-size: 2.25rem;
-    }
-
-    .models-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .model-card {
-      padding: 1.25rem;
-    }
-  }
 </style>
+
+<script>
+  import '../styles/huggingface.css';
+</script>

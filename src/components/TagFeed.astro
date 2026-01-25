@@ -1,5 +1,7 @@
 ---
 import { supabase } from '../lib/supabase';
+import TagFeedList from './TagFeedList';
+import Navigation from './Navigation.astro';
 
 interface Props {
   tag: string;
@@ -43,18 +45,6 @@ if (supabase) {
     error = e instanceof Error ? e.message : 'Failed to fetch items';
   }
 }
-
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  
-  if (hours < 24) {
-    return `${hours} 小时前`;
-  }
-  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-}
 ---
 
 <html lang="zh-CN">
@@ -68,9 +58,7 @@ function formatDate(dateStr: string) {
   <body>
     <main>
       <header class="page-header">
-        <nav class="breadcrumb">
-            <a href={import.meta.env.BASE_URL}>← 返回首页</a>
-        </nav>
+        <Navigation href={import.meta.env.BASE_URL} label="返回首页" />
         <h1>{title}</h1>
         <p>{description}</p>
       </header>
@@ -79,30 +67,8 @@ function formatDate(dateStr: string) {
         <div class="error-message">
           <p>加载失败: {error}</p>
         </div>
-      ) : items.length === 0 ? (
-        <div class="empty-message">
-          <p>暂无相关内容</p>
-        </div>
       ) : (
-        <div class="feed-list">
-          {items.map((item) => (
-            <article class="feed-item">
-              <div class="item-meta">
-                <span class="source-tag">{item.source}</span>
-                <time>{formatDate(item.created_at)}</time>
-              </div>
-              <h2>
-                <a href={item.url} target="_blank" rel="noopener">{item.title}</a>
-              </h2>
-              {item.summary && <p class="summary">{item.summary}</p>}
-              <div class="item-tags">
-                {item.tags?.map(t => (
-                  <span class={`tag ${t}`}>{t}</span>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
+        <TagFeedList client:load tag={tag} initialItems={items} />
       )}
     </main>
     <script>
@@ -140,21 +106,9 @@ function formatDate(dateStr: string) {
     text-align: center;
   }
   
-  .breadcrumb {
-    margin-bottom: 1.5rem;
-    text-align: left;
-  }
-
-  .breadcrumb a {
-    color: #6b7280;
-    text-decoration: none;
-    font-size: 0.875rem;
-    transition: color 0.2s;
-  }
-
-  .breadcrumb a:hover {
-    color: #3b82f6;
-  }
+  /* Use global Navigation component for breadcrumb, but we can override if needed. 
+     The Navigation component handles its own styles. 
+  */
 
   h1 {
     font-size: 2rem;
@@ -171,6 +125,14 @@ function formatDate(dateStr: string) {
     margin: 0;
   }
 
+  /* React Component Styles - moved to global scope or kept here if scoping allows.
+     Since TagFeedList is a React component, its styles need to be global or imported.
+     I'll put them here in a :global block or just standard CSS since Astro scopes <style> by default 
+     but React components inside won't be affected by scoped styles unless passed as props or global.
+  */
+</style>
+
+<style is:global>
   .feed-list {
     display: flex;
     flex-direction: column;
@@ -257,15 +219,5 @@ function formatDate(dateStr: string) {
     border-radius: 12px;
     color: #6b7280;
     border: 1px solid #e5e7eb;
-  }
-  
-  @media (max-width: 640px) {
-    .page-header h1 {
-        font-size: 1.75rem;
-    }
-    
-    .feed-item {
-        padding: 1.25rem;
-    }
   }
 </style>
