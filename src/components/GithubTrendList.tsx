@@ -45,7 +45,6 @@ export default function GithubTrendList({ initialRepos }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Client-side fetch to update data
     async function fetchLatest() {
       if (!supabase) return;
 
@@ -57,15 +56,11 @@ export default function GithubTrendList({ initialRepos }: Props) {
           .order('stars', { ascending: false })
           .limit(30);
 
-        if (fetchError) {
-          console.error('Error fetching github trends:', fetchError);
-        } else if (data && data.length > 0) {
-            // Check if data is newer or different? 
-            // For now, just replace it as it is "fresh" from DB
-            setRepos(data);
+        if (!fetchError && data && data.length > 0) {
+          setRepos(data);
         }
       } catch (e) {
-        console.error('Failed to fetch github trends:', e);
+        // Keep initial data on error
       }
     }
 

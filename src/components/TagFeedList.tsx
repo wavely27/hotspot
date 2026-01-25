@@ -47,16 +47,14 @@ export default function TagFeedList({ tag, initialItems }: Props) {
           .order('created_at', { ascending: false })
           .limit(50);
 
-        if (fetchError) {
-            console.error('Error fetching feed:', fetchError);
-            // Don't show error to user if we have initial items, just log it
-            if (initialItems.length === 0) setError(fetchError.message);
-        } else if (data) {
-           setItems(data);
-        }
-      } catch (e) {
-        console.error('Failed to fetch feed:', e);
-        if (initialItems.length === 0) setError(e instanceof Error ? e.message : 'Unknown error');
+         if (fetchError) {
+             // Don't show error to user if we have initial items, just log it
+             if (initialItems.length === 0) setError(fetchError.message);
+         } else if (data) {
+            setItems(data);
+         }
+       } catch (e) {
+         if (initialItems.length === 0) setError(e instanceof Error ? e.message : 'Unknown error');
       }
     }
 
