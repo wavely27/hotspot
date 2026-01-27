@@ -2,7 +2,7 @@ name: Daily AI Hotspot Update
 
 on:
   schedule:
-    - cron: '0 20 * * *'  # 北京时间 04:00 (UTC+8)
+    - cron: '15 0 * * *'  # 北京时间 08:15 (UTC+8)
   workflow_dispatch:
 
 permissions:
