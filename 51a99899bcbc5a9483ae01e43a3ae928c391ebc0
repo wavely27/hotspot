@@ -1,0 +1,36 @@
+.github/workflows/daily_fetch.yml
+  4ce9c59e3556ccdc 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.37",
+  "base_commit_sha": "51a99899bcbc5a9483ae01e43a3ae928c391ebc0",
+  "prompts": {
+    "01c0a542517e14a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3fe646f3bffeGENBcnBiShnJge-cecb57a0-9582-49b7-a3e3-86dce1eb0e1c",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    },
+    "4ce9c59e3556ccdc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3fe646f3bffeGENBcnBiShnJge-edde4412-db9f-4d5d-a6f7-b614f93fdeb5",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
