@@ -1,0 +1,34 @@
+---
+import { cn } from "../../lib/utils";
+
+interface Props {
+  variant?: "default" | "secondary" | "outline" | "success" | "warning" | "error";
+  size?: "sm" | "md";
+  class?: string;
+  [key: string]: any;
+}
+
+const { variant = "default", size = "sm", class: className, ...rest } = Astro.props;
+
+const variants = {
+  default: "border-transparent bg-brand-primary text-white hover:bg-brand-primary/80",
+  secondary: "border-transparent bg-slate-100 text-slate-900 hover:bg-slate-200",
+  outline: "text-slate-500 border-slate-200",
+  success: "border-transparent bg-semantic-success/15 text-semantic-success hover:bg-semantic-success/25",
+  warning: "border-transparent bg-semantic-warning/15 text-semantic-warning hover:bg-semantic-warning/25",
+  error: "border-transparent bg-semantic-error/15 text-semantic-error hover:bg-semantic-error/25",
+};
+
+const sizes = {
+  sm: "px-2.5 py-0.5 text-xs",
+  md: "px-3 py-1 text-sm",
+};
+
+const baseStyles = "inline-flex items-center rounded-full border font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
+
+const classes = cn(baseStyles, variants[variant], sizes[size], className);
+---
+
+<span class={classes} {...rest}>
+  <slot />
+</span>

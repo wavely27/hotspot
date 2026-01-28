@@ -4,6 +4,8 @@
  * 展示日报摘要信息，点击跳转详情页
  */
 import { supabase } from '../lib/supabase'
+import Card from './ui/Card.astro'
+import { Calendar, Layers, ChevronRight } from 'lucide-react'
 
 interface DailyReport {
   id: string
@@ -38,7 +40,6 @@ if (supabase) {
 
 // 从内容中提取统计信息
 function extractStats(content: string): { totalCount: number; sourceCount: number } {
-  // 尝试匹配带格式的统计行
   const countMatch = content.match(/今日共收录 \*\*(\d+)\*\* 条热点，来自 \*\*(\d+)\*\* 个信息源/)
   if (countMatch) {
     return {
@@ -47,7 +48,6 @@ function extractStats(content: string): { totalCount: number; sourceCount: numbe
     }
   }
   
-  // 备用：通过统计 ## 和 ### 的数量来计算
   const sources = content.match(/^## .+$/gm) || []
   const items = content.match(/^### \d+\. /gm) || []
   
@@ -57,7 +57,6 @@ function extractStats(content: string): { totalCount: number; sourceCount: numbe
   }
 }
 
-// 格式化日期
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleDateString('zh-CN', {
@@ -68,7 +67,6 @@ function formatDate(dateStr: string): string {
   })
 }
 
-// 格式化短日期
 function formatShortDate(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleDateString('zh-CN', {
@@ -78,215 +76,62 @@ function formatShortDate(dateStr: string): string {
 }
 ---
 
-<section class="daily-reports">
-  <div class="section-header">
-    <h2>AI 热点日报</h2>
-    <p>每日精选 AI 领域热点动态</p>
+<section class="max-w-4xl mx-auto py-8">
+  <div class="text-center mb-10">
+    <h2 class="text-3xl font-bold text-slate-900 mb-2">AI 热点日报</h2>
+    <p class="text-slate-500">每日精选 AI 领域热点动态</p>
   </div>
 
   {error ? (
-    <div class="error-message">
+    <div class="p-8 text-center bg-semantic-error/10 rounded-xl text-semantic-error">
       <p>加载失败: {error}</p>
     </div>
   ) : reports.length === 0 ? (
-    <div class="empty-message">
+    <div class="p-12 text-center bg-slate-50 rounded-xl border border-slate-200 text-slate-500">
       <p>暂无日报数据</p>
     </div>
   ) : (
-    <div class="reports-grid">
+    <div class="flex flex-col gap-4">
       {reports.map((report) => {
         const stats = extractStats(report.content)
-        // 适配 base path (GitHub Pages)
         const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '')
         return (
-          <a href={`${baseUrl}/reports/${report.report_date}`} class="report-card">
-            <div class="report-date-badge">
-              {formatShortDate(report.report_date)}
-            </div>
-            <div class="report-info">
-              <h3>{formatDate(report.report_date)}</h3>
-              <div class="report-stats">
-                <span class="stat">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  {stats.totalCount} 条热点
-                </span>
-                <span class="stat">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                  {stats.sourceCount} 个来源
-                </span>
+          <a href={`${baseUrl}/reports/${report.report_date}`} class="block group">
+            <Card hover class="flex items-center gap-4 p-5 border-slate-200">
+              <div class="shrink-0 w-16 h-16 bg-gradient-to-br from-brand-primary to-brand-dark text-white rounded-xl flex items-center justify-center text-sm font-bold text-center leading-tight shadow-md">
+                {formatShortDate(report.report_date)}
               </div>
               
-              {report.summary && (
-                <p class="report-summary">{report.summary}</p>
-              )}
-            </div>
-            <div class="report-arrow">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-lg font-bold text-slate-900 mb-2 group-hover:text-brand-primary transition-colors">
+                  {formatDate(report.report_date)}
+                </h3>
+                
+                <div class="flex items-center gap-4 mb-3 text-sm text-slate-500">
+                  <span class="flex items-center gap-1.5">
+                    <Layers size={16} className="text-slate-400" />
+                    {stats.totalCount} 条热点
+                  </span>
+                  <span class="flex items-center gap-1.5">
+                    <Calendar size={16} className="text-slate-400" />
+                    {stats.sourceCount} 个来源
+                  </span>
+                </div>
+                
+                {report.summary && (
+                  <p class="text-sm text-slate-600 line-clamp-2 leading-relaxed">
+                    {report.summary}
+                  </p>
+                )}
+              </div>
+              
+              <div class="shrink-0 text-slate-300 group-hover:text-brand-primary group-hover:translate-x-1 transition-all">
+                <ChevronRight size={24} />
+              </div>
+            </Card>
           </a>
         )
       })}
     </div>
   )}
 </section>
-
-<style>
-  .daily-reports {
-    max-width: 900px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-  }
-
-  .section-header {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-
-  .section-header h2 {
-    font-size: 1.75rem;
-    color: #1f2937;
-    margin: 0 0 0.5rem 0;
-  }
-
-  .section-header p {
-    color: #6b7280;
-    margin: 0;
-  }
-
-  .error-message,
-  .empty-message {
-    text-align: center;
-    padding: 2rem;
-    background: #f9fafb;
-    border-radius: 8px;
-    color: #6b7280;
-  }
-
-  .error-message {
-    background: #fef2f2;
-    color: #dc2626;
-  }
-
-  .reports-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .report-card {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 1.25rem;
-    text-decoration: none;
-    color: inherit;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  }
-
-  .report-card:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-    transform: translateY(-2px);
-  }
-
-  .report-date-badge {
-    flex-shrink: 0;
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    color: white;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-align: center;
-    line-height: 1.2;
-  }
-
-  .report-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .report-info h3 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.125rem;
-    color: #1f2937;
-    font-weight: 600;
-  }
-
-  .report-stats {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .stat {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-size: 0.875rem;
-    color: #6b7280;
-  }
-
-  .stat svg {
-    color: #9ca3af;
-  }
-
-  .report-summary {
-    margin: 0;
-    font-size: 0.875rem;
-    color: #4b5563;
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .report-arrow {
-    flex-shrink: 0;
-    color: #9ca3af;
-    transition: color 0.2s, transform 0.2s;
-  }
-
-  .report-card:hover .report-arrow {
-    color: #3b82f6;
-    transform: translateX(4px);
-  }
-
-  @media (max-width: 640px) {
-    .daily-reports {
-      padding: 0 0.5rem;
-    }
-
-    .report-card {
-      padding: 1rem;
-    }
-
-    .report-date-badge {
-      width: 50px;
-      height: 50px;
-      font-size: 0.75rem;
-    }
-
-    .report-info h3 {
-      font-size: 1rem;
-    }
-
-    .report-stats {
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    .section-header h2 {
-      font-size: 1.5rem;
-    }
-  }
-</style>

@@ -1,0 +1,34 @@
+---
+interface Props {
+  href?: string;
+  label?: string;
+}
+
+const { href = import.meta.env.BASE_URL, label = "返回首页" } = Astro.props;
+---
+
+<nav class="breadcrumb">
+  <a href={href}>← {label}</a>
+</nav>
+
+<style>
+  .breadcrumb {
+    margin-bottom: 2rem;
+  }
+
+  .breadcrumb a {
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: color 0.2s;
+    font-weight: 500;
+  }
+
+  .breadcrumb a:hover {
+    color: #3b82f6;
+    text-decoration: underline;
+  }
+</style>

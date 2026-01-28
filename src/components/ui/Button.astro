@@ -1,0 +1,58 @@
+---
+import { cn } from "../../lib/utils";
+
+interface Props {
+  variant?: "primary" | "secondary" | "outline" | "ghost" | "link";
+  size?: "sm" | "md" | "lg";
+  class?: string;
+  href?: string;
+  target?: string;
+  type?: "button" | "submit" | "reset";
+  [key: string]: any;
+}
+
+const {
+  variant = "primary",
+  size = "md",
+  class: className,
+  href,
+  target,
+  type = "button",
+  ...rest
+} = Astro.props;
+
+const variants = {
+  primary: "bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90 shadow-sm border-transparent",
+  secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200 border-transparent",
+  outline: "border-slate-200 bg-transparent hover:bg-slate-50 text-slate-700",
+  ghost: "bg-transparent hover:bg-slate-100 text-slate-700 border-transparent",
+  link: "text-brand-primary underline-offset-4 hover:underline bg-transparent border-transparent px-0",
+};
+
+const sizes = {
+  sm: "h-8 px-3 text-xs",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-6 text-base",
+};
+
+const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-lg border font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:pointer-events-none disabled:opacity-50 cursor-pointer";
+
+const classes = cn(
+  baseStyles,
+  variants[variant],
+  sizes[size],
+  className
+);
+
+const Element = href ? "a" : "button";
+---
+
+<Element
+  href={href}
+  target={target}
+  type={!href ? type : undefined}
+  class={classes}
+  {...rest}
+>
+  <slot />
+</Element>

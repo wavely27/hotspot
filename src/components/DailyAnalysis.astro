@@ -1,4 +1,8 @@
 ---
+import Card from './ui/Card.astro';
+import Badge from './ui/Badge.astro';
+import { Sparkles, TrendingUp, Zap } from 'lucide-react';
+
 interface FocusEvent {
   title: string;
   summary: string;
@@ -19,50 +23,66 @@ interface Props {
 }
 
 const { analysis } = Astro.props;
-
-// 计算关键词最大权重用于标准化
 const maxWeight = Math.max(...Object.values(analysis.keywords || {}));
 ---
 
-<section class="daily-analysis">
-  <div class="analysis-header">
-    <h2>🤖 AI 深度分析</h2>
-    <p class="overview">{analysis.overview}</p>
+<section class="bg-slate-50 rounded-2xl p-6 md:p-8 border border-slate-200 shadow-inner">
+  <div class="text-center mb-10">
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-primary/10 text-brand-primary font-medium text-sm mb-4">
+      <Sparkles size={16} />
+      <span>AI 深度洞察</span>
+    </div>
+    <h2 class="text-2xl font-bold text-slate-900 mb-4">智能分析报告</h2>
+    <p class="text-slate-600 leading-relaxed max-w-2xl mx-auto text-lg">
+      {analysis.overview}
+    </p>
   </div>
 
-  <div class="focus-events">
-    <h3>今日焦点</h3>
-    <div class="events-grid">
+  <div class="mb-12">
+    <h3 class="flex items-center gap-2 text-xl font-bold text-slate-900 mb-6">
+      <Zap className="text-amber-500" />
+      今日焦点
+    </h3>
+    <div class="grid gap-6 md:grid-cols-2">
       {analysis.focus_events?.map((event, index) => (
-        <div class="event-card">
-          <div class="event-number">0{index + 1}</div>
-          <h4>{event.title}</h4>
-          <p class="event-summary">{event.summary}</p>
-          <div class="analysis-points">
-            <div class="point">
-              <strong>为什么重要：</strong> {event.why}
-            </div>
-            <div class="point impact">
-              <strong>后续影响：</strong> {event.impact}
+        <Card class="relative overflow-hidden border-slate-200">
+          <div class="absolute -top-4 -right-4 text-9xl font-black text-slate-100 select-none z-0">
+            {index + 1}
+          </div>
+          <div class="relative z-10 p-6">
+            <h4 class="text-lg font-bold text-slate-900 mb-3 pr-8">{event.title}</h4>
+            <p class="text-slate-600 mb-6 text-sm leading-relaxed">{event.summary}</p>
+            
+            <div class="space-y-3">
+              <div class="bg-slate-50 p-3 rounded-lg border-l-4 border-brand-primary text-sm text-slate-700">
+                <strong class="block text-brand-primary mb-1 text-xs uppercase tracking-wider">Why it matters</strong>
+                {event.why}
+              </div>
+              <div class="bg-slate-50 p-3 rounded-lg border-l-4 border-brand-secondary text-sm text-slate-700">
+                <strong class="block text-brand-secondary mb-1 text-xs uppercase tracking-wider">Impact</strong>
+                {event.impact}
+              </div>
             </div>
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   </div>
 
-  <div class="keywords-cloud">
-    <h3>热度关键词</h3>
-    <div class="cloud-container">
+  <div>
+    <h3 class="flex items-center gap-2 text-xl font-bold text-slate-900 mb-6">
+      <TrendingUp className="text-rose-500" />
+      热度关键词
+    </h3>
+    <div class="flex flex-wrap justify-center gap-3 p-8 bg-white rounded-xl border border-slate-200 shadow-sm">
       {Object.entries(analysis.keywords || {})
         .sort(([, a], [, b]) => b - a)
         .map(([keyword, weight]) => {
-          // 简单的字号计算
-          const fontSize = 0.8 + (weight / maxWeight) * 1.5;
-          const opacity = 0.6 + (weight / maxWeight) * 0.4;
+          const fontSize = 0.85 + (weight / maxWeight) * 1.0; // 0.85rem ~ 1.85rem
+          const opacity = 0.5 + (weight / maxWeight) * 0.5;
           return (
             <span 
-              class="keyword-tag" 
+              class="font-bold text-brand-primary transition-all hover:scale-110 cursor-default"
               style={`font-size: ${fontSize}rem; opacity: ${opacity}`}
             >
               {keyword}
@@ -72,147 +92,3 @@ const maxWeight = Math.max(...Object.values(analysis.keywords || {}));
     </div>
   </div>
 </section>
-
-<style>
-  .daily-analysis {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e5e7eb;
-  }
-
-  .analysis-header {
-    margin-bottom: 2rem;
-    text-align: center;
-  }
-
-  h2 {
-    font-size: 1.8rem;
-    margin: 0 0 1rem 0;
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .overview {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    color: #4b5563;
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
-  h3 {
-    font-size: 1.4rem;
-    color: #1f2937;
-    margin: 0 0 1.5rem 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  h3::before {
-    content: "";
-    display: block;
-    width: 4px;
-    height: 1.4rem;
-    background: #3b82f6;
-    border-radius: 2px;
-  }
-
-  .events-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 3rem;
-  }
-
-  .event-card {
-    background: #f8fafc;
-    border-radius: 12px;
-    padding: 1.5rem;
-    position: relative;
-    border: 1px solid #e2e8f0;
-  }
-
-  .event-number {
-    position: absolute;
-    top: -10px;
-    right: 20px;
-    font-size: 3rem;
-    font-weight: 800;
-    color: #e2e8f0;
-    opacity: 0.5;
-    line-height: 1;
-  }
-
-  .event-card h4 {
-    margin: 0 0 1rem 0;
-    font-size: 1.2rem;
-    color: #1e293b;
-    position: relative;
-    z-index: 1;
-  }
-
-  .event-summary {
-    color: #475569;
-    margin-bottom: 1.5rem;
-    line-height: 1.6;
-    font-size: 0.95rem;
-  }
-
-  .analysis-points {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    font-size: 0.9rem;
-  }
-
-  .point {
-    background: white;
-    padding: 0.75rem;
-    border-radius: 8px;
-    border-left: 3px solid #3b82f6;
-    color: #334155;
-    line-height: 1.5;
-  }
-
-  .point.impact {
-    border-left-color: #8b5cf6;
-  }
-
-  .cloud-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    justify-content: center;
-    padding: 2rem;
-    background: #f8fafc;
-    border-radius: 12px;
-  }
-
-  .keyword-tag {
-    color: #3b82f6;
-    font-weight: 600;
-    transition: transform 0.2s;
-    cursor: default;
-  }
-
-  .keyword-tag:hover {
-    transform: scale(1.1);
-    color: #2563eb;
-  }
-
-  @media (max-width: 640px) {
-    .daily-analysis {
-      padding: 1.5rem;
-    }
-    
-    .events-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>

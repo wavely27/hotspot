@@ -1,138 +1,22 @@
 ---
 import DailyReports from '../components/DailyReports.astro'
+import MainLayout from '../layouts/MainLayout.astro'
 ---
 
-<html lang="zh-CN">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Hotspot - AI 热点资讯</title>
-	</head>
-	<body>
-		<main>
-			<header class="hero">
-				<h1>Hotspot</h1>
-				<p>AI 热点资讯聚合平台</p>
-				<nav class="nav-links">
-					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/daily/trending`} class="nav-link trending">
-						<span class="nav-icon">🔥</span>
-						热点速览
-					</a>
-					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/daily/tech`} class="nav-link tech">
-						<span class="nav-icon">💻</span>
-						技术前沿
-					</a>
-					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/daily/business`} class="nav-link business">
-						<span class="nav-icon">💼</span>
-						商业洞察
-					</a>
-					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/github`} class="nav-link">
-						<span class="nav-icon">⭐</span>
-						GitHub
-					</a>
-					<a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/huggingface`} class="nav-link hf">
-						<span class="nav-icon">🤗</span>
-						HuggingFace
-					</a>
-				</nav>
-			</header>
-			<DailyReports />
-		</main>
-    <script>
-      import { trackPageView } from '../lib/analytics';
-      trackPageView();
-    </script>
-	</body>
-</html>
-
-<style>
-	body {
-		margin: 0;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-		background: #f9fafb;
-		min-height: 100vh;
-	}
-
-	main {
-		padding: 2rem 1rem;
-		max-width: 1200px;
-		margin: 0 auto;
-	}
-
-	.hero {
-		text-align: center;
-		padding: 2rem 0 1rem;
-	}
-
-	.hero h1 {
-		font-size: 2.5rem;
-		color: #1f2937;
-		margin: 0 0 0.5rem 0;
-		background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
-	}
-
-	.hero p {
-		color: #6b7280;
-		font-size: 1.125rem;
-		margin: 0 0 1.5rem 0;
-	}
-
-	.nav-links {
-		display: flex;
-		justify-content: center;
-		gap: 1rem;
-		flex-wrap: wrap;
-	}
-
-	.nav-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1.25rem;
-		background: #ffffff;
-		border: 1px solid #e5e7eb;
-		border-radius: 8px;
-		text-decoration: none;
-		color: #374151;
-		font-weight: 500;
-		font-size: 0.9rem;
-		transition: all 0.2s ease;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-	}
-
-	.nav-link:hover {
-		border-color: #3b82f6;
-		color: #3b82f6;
-		box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-		transform: translateY(-2px);
-	}
-
-	.nav-link.hf:hover {
-		border-color: #f97316;
-		color: #f97316;
-		box-shadow: 0 4px 12px rgba(249, 115, 22, 0.15);
-	}
-
-	.nav-link.trending:hover { border-color: #e11d48; color: #e11d48; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.15); }
-	.nav-link.tech:hover { border-color: #16a34a; color: #16a34a; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.15); }
-	.nav-link.business:hover { border-color: #ea580c; color: #ea580c; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.15); }
-
-	.nav-icon {
-		font-size: 1.1rem;
-	}
-
-	@media (max-width: 640px) {
-		.hero h1 {
-			font-size: 2rem;
-		}
-
-		.hero p {
-			font-size: 1rem;
-		}
-	}
-</style>
+<MainLayout>
+  <div class="text-center py-12 md:py-20">
+    <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6">
+      <span class="text-gradient">Hotspot</span>
+    </h1>
+    <p class="text-lg md:text-xl text-slate-500 max-w-2xl mx-auto">
+      AI 热点资讯聚合平台，每日精选全球科技动态
+    </p>
+  </div>
+  
+  <DailyReports />
+  
+  <script>
+    import { trackPageView } from '../lib/analytics';
+    trackPageView();
+  </script>
+</MainLayout>

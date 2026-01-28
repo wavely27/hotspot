@@ -1,34 +1,42 @@
 ---
-interface Props {
-  href?: string;
-  label?: string;
+import { cn } from "../lib/utils";
+
+interface Link {
+  href: string;
+  label: string;
+  icon: string;
 }
 
-const { href = import.meta.env.BASE_URL, label = "返回首页" } = Astro.props;
+const links: Link[] = [
+  { href: '/daily/trending', label: '热点', icon: '🔥' },
+  { href: '/daily/tech', label: '技术', icon: '💻' },
+  { href: '/daily/business', label: '商业', icon: '💼' },
+  { href: '/github', label: 'GitHub', icon: '⭐' },
+  { href: '/huggingface', label: 'HuggingFace', icon: '🤗' },
+];
+
+const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '');
+const currentPath = Astro.url.pathname;
 ---
 
-<nav class="breadcrumb">
-  <a href={href}>← {label}</a>
+<nav class="flex items-center gap-1">
+  {links.map(link => {
+    const fullHref = `${baseUrl}${link.href}`;
+    const isActive = currentPath.startsWith(fullHref);
+    
+    return (
+      <a 
+        href={fullHref}
+        class={cn(
+          "inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+          isActive 
+            ? "bg-slate-100 text-brand-primary" 
+            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+        )}
+      >
+        <span>{link.icon}</span>
+        <span>{link.label}</span>
+      </a>
+    )
+  })}
 </nav>
-
-<style>
-  .breadcrumb {
-    margin-bottom: 2rem;
-  }
-
-  .breadcrumb a {
-    color: #6b7280;
-    text-decoration: none;
-    font-size: 0.875rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    transition: color 0.2s;
-    font-weight: 500;
-  }
-
-  .breadcrumb a:hover {
-    color: #3b82f6;
-    text-decoration: underline;
-  }
-</style>

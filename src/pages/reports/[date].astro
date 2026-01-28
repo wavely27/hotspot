@@ -4,7 +4,11 @@
  * 动态路由：/reports/[date]
  */
 import { supabase } from '../../lib/supabase'
+import MainLayout from '../../layouts/MainLayout.astro'
 import DailyAnalysis from '../../components/DailyAnalysis.astro';
+import Button from '../../components/ui/Button.astro';
+import Badge from '../../components/ui/Badge.astro';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 
 // 构建时生成所有静态路径
 export async function getStaticPaths() {
@@ -73,7 +77,6 @@ if (supabase && date) {
     analysisData = analysis
 
     // 3. Fetch Structured Hotspots
-    // 构造时间范围 (UTC)
     const startDate = `${date}T00:00:00.000Z`
     const endDate = `${date}T23:59:59.999Z`
 
@@ -96,18 +99,18 @@ if (supabase && date) {
 // 解析 Markdown 内容为 HTML (用于回退显示)
 function parseMarkdown(content: string): string {
   return content
-    .replace(/^### (\d+)\. \[([^\]]+)\]\(([^)]+)\)/gm, '<div class="report-item"><a href="$3" target="_blank" rel="noopener" class="report-link">$1. $2</a></div>')
-    .replace(/^## (.+)$/gm, '<h3 class="report-source">$1</h3>')
-    .replace(/^# (.+)$/gm, '<h2 class="report-title">$1</h2>')
-    .replace(/^> (.+)$/gm, '<blockquote class="report-quote">$1</blockquote>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/^---$/gm, '<hr class="report-divider" />')
+    .replace(/^### (\d+)\. \[([^\]]+)\]\(([^)]+)\)/gm, '<div class="py-2"><a href="$3" target="_blank" rel="noopener" class="text-brand-primary hover:underline font-medium">$1. $2</a></div>')
+    .replace(/^## (.+)$/gm, '<h3 class="text-xl font-bold text-slate-900 mt-8 mb-4 pb-2 border-b border-brand-primary/20">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 class="text-2xl font-bold text-slate-900 mb-4">$1</h2>')
+    .replace(/^> (.+)$/gm, '<blockquote class="my-4 pl-4 py-3 bg-slate-50 border-l-4 border-brand-primary text-slate-600">$1</blockquote>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-slate-900">$1</strong>')
+    .replace(/^---$/gm, '<hr class="my-8 border-slate-200" />')
     .replace(/\n\n/g, '<br/>')
 }
 
 // 格式化日期
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr)
+  const d = new Date(dateStr as string)
   return d.toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',
@@ -125,299 +128,161 @@ const groupedHotspots = {
 }
 
 const hasStructuredData = hotspots.length > 0
+const title = report ? `AI 热点日报 - ${formatDate(report.report_date)}` : '日报详情'
 ---
 
-<html lang="zh-CN">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width" />
-    <meta name="generator" content={Astro.generator} />
-    <title>{report ? `AI 热点日报 - ${formatDate(report.report_date)}` : '日报详情'} | Hotspot</title>
-  </head>
-  <body>
-    <main>
-      <nav class="breadcrumb">
-        <a href={import.meta.env.BASE_URL}>← 返回日报列表</a>
-      </nav>
+<MainLayout title={title}>
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-6">
+      <Button href={import.meta.env.BASE_URL} variant="ghost" size="sm" class="pl-0 gap-1 text-slate-500 hover:text-slate-900">
+        <ArrowLeft size={16} />
+        返回日报列表
+      </Button>
+    </div>
 
-      {error ? (
-        <div class="error-message">
-          <h1>加载失败</h1>
-          <p>{error}</p>
-          <a href={import.meta.env.BASE_URL} class="back-link">返回首页</a>
-        </div>
-      ) : !report ? (
-        <div class="error-message">
-          <h1>日报不存在</h1>
-          <p>未找到 {date} 的日报</p>
-          <a href={import.meta.env.BASE_URL} class="back-link">返回首页</a>
-        </div>
-      ) : (
-        <article class="report-detail">
-          <header class="report-header">
-            <time datetime={report.report_date}>{formatDate(report.report_date)}</time>
-            <h1>AI 热点日报</h1>
-          </header>
+    {error ? (
+      <div class="text-center py-12 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <h1 class="text-xl font-bold text-semantic-error mb-2">加载失败</h1>
+        <p class="text-slate-500 mb-6">{error}</p>
+        <Button href={import.meta.env.BASE_URL}>返回首页</Button>
+      </div>
+    ) : !report ? (
+      <div class="text-center py-12 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <h1 class="text-xl font-bold text-slate-900 mb-2">日报不存在</h1>
+        <p class="text-slate-500 mb-6">未找到 {date} 的日报</p>
+        <Button href={import.meta.env.BASE_URL}>返回首页</Button>
+      </div>
+    ) : (
+      <article class="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
+        <header class="bg-gradient-to-r from-brand-primary to-brand-dark text-white p-8 md:p-12 text-center">
+          <time datetime={report.report_date} class="text-brand-primary/20 bg-white/10 px-3 py-1 rounded-full text-sm font-medium backdrop-blur-sm">
+            {formatDate(report.report_date)}
+          </time>
+          <h1 class="text-3xl md:text-4xl font-bold mt-4 tracking-tight">AI 热点日报</h1>
+        </header>
 
-          <div class="report-body">
-            {/* 深度分析模块 */}
-            {analysisData && (
+        <div class="p-6 md:p-10">
+          {/* 深度分析模块 */}
+          {analysisData && (
+            <div class="mb-10">
               <DailyAnalysis analysis={analysisData} />
-            )}
+            </div>
+          )}
 
-            {/* 结构化热点列表 */}
-            {hasStructuredData ? (
-              <div class="structured-content">
-                {groupedHotspots.trending.length > 0 && (
-                  <section class="tag-section">
-                    <h2 class="tag-title trending">🔥 热点速览</h2>
-                    <div class="hotspot-list">
-                      {groupedHotspots.trending.map((item, i) => (
-                        <div class="hotspot-item">
-                          <h3><a href={item.url} target="_blank">{i+1}. {item.title}</a></h3>
-                          {item.summary && <p>{item.summary}</p>}
-                          <span class="source-badge">{item.source}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+          {/* 结构化热点列表 */}
+          {hasStructuredData ? (
+            <div class="space-y-12">
+              {groupedHotspots.trending.length > 0 && (
+                <section>
+                  <h2 class="text-2xl font-bold text-rose-600 mb-6 flex items-center gap-2 pb-3 border-b border-rose-100">
+                    🔥 热点速览
+                  </h2>
+                  <div class="space-y-6">
+                    {groupedHotspots.trending.map((item, i) => (
+                      <div class="group">
+                        <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight">
+                          <a href={item.url} target="_blank" class="hover:text-brand-primary transition-colors flex items-start gap-2">
+                            <span class="text-slate-400 font-normal shrink-0">{i+1}.</span>
+                            {item.title}
+                            <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 text-slate-400" />
+                          </a>
+                        </h3>
+                        {item.summary && <p class="text-slate-600 mb-2 leading-relaxed">{item.summary}</p>}
+                        <Badge variant="secondary" size="sm">{item.source}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
-                {groupedHotspots.tech.length > 0 && (
-                  <section class="tag-section">
-                    <h2 class="tag-title tech">💻 技术前沿</h2>
-                    <div class="hotspot-list">
-                      {groupedHotspots.tech.map((item, i) => (
-                        <div class="hotspot-item">
-                          <h3><a href={item.url} target="_blank">{i+1}. {item.title}</a></h3>
-                          {item.summary && <p>{item.summary}</p>}
-                          <span class="source-badge">{item.source}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+              {groupedHotspots.tech.length > 0 && (
+                <section>
+                  <h2 class="text-2xl font-bold text-emerald-600 mb-6 flex items-center gap-2 pb-3 border-b border-emerald-100">
+                    💻 技术前沿
+                  </h2>
+                  <div class="space-y-6">
+                    {groupedHotspots.tech.map((item, i) => (
+                      <div class="group">
+                        <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight">
+                          <a href={item.url} target="_blank" class="hover:text-brand-primary transition-colors flex items-start gap-2">
+                            <span class="text-slate-400 font-normal shrink-0">{i+1}.</span>
+                            {item.title}
+                            <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 text-slate-400" />
+                          </a>
+                        </h3>
+                        {item.summary && <p class="text-slate-600 mb-2 leading-relaxed">{item.summary}</p>}
+                        <Badge variant="secondary" size="sm">{item.source}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
-                {groupedHotspots.business.length > 0 && (
-                  <section class="tag-section">
-                    <h2 class="tag-title business">💼 商业洞察</h2>
-                    <div class="hotspot-list">
-                      {groupedHotspots.business.map((item, i) => (
-                        <div class="hotspot-item">
-                          <h3><a href={item.url} target="_blank">{i+1}. {item.title}</a></h3>
-                          {item.summary && <p>{item.summary}</p>}
-                          <span class="source-badge">{item.source}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-                
-                {groupedHotspots.other.length > 0 && (
-                  <section class="tag-section">
-                    <h2 class="tag-title other">📰 其他资讯</h2>
-                    <div class="hotspot-list">
-                      {groupedHotspots.other.map((item, i) => (
-                        <div class="hotspot-item">
-                          <h3><a href={item.url} target="_blank">{i+1}. {item.title}</a></h3>
-                          {item.summary && <p>{item.summary}</p>}
-                          <span class="source-badge">{item.source}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </div>
-            ) : (
-              // 回退到 Markdown 内容
-              <div class="report-content" set:html={parseMarkdown(report.content)} />
-            )}
-          </div>
-        </article>
-      )}
-    </main>
-    <script>
-      import { trackPageView, trackClick } from '../../lib/analytics';
-      
-      trackPageView();
-
-      document.addEventListener('click', (e) => {
-        const target = (e.target as HTMLElement).closest('a');
-        if (target && target.href && target.target === '_blank') {
-           trackClick(target.href, undefined, 'daily_report_detail');
-        }
-      });
-    </script>
-  </body>
-</html>
-
-<style>
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: #f9fafb;
-    min-height: 100vh;
-  }
-
-  main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
-  }
-
-  .breadcrumb {
-    margin-bottom: 1.5rem;
-  }
-
-  .breadcrumb a {
-    color: #3b82f6;
-    text-decoration: none;
-    font-size: 0.875rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  .breadcrumb a:hover {
-    text-decoration: underline;
-  }
-
-  .error-message {
-    text-align: center;
-    padding: 3rem 2rem;
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-  }
-
-  .back-link {
-    display: inline-block;
-    padding: 0.75rem 1.5rem;
-    background: #3b82f6;
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-  }
-
-  .report-detail {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-
-  .report-header {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    color: white;
-    padding: 2rem;
-    text-align: center;
-  }
-
-  .report-header time {
-    font-size: 0.875rem;
-    opacity: 0.9;
-  }
-
-  .report-header h1 {
-    margin: 0.5rem 0 0 0;
-    font-size: 1.75rem;
-  }
-
-  .report-body {
-    padding: 2rem;
-  }
-
-  /* Structured Content Styles */
-  .tag-section {
-    margin-bottom: 3rem;
-  }
-
-  .tag-title {
-    font-size: 1.4rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #eee;
-    color: #1f2937;
-  }
-
-  .tag-title.trending { border-bottom-color: #e11d48; color: #e11d48; }
-  .tag-title.tech { border-bottom-color: #16a34a; color: #16a34a; }
-  .tag-title.business { border-bottom-color: #ea580c; color: #ea580c; }
+              {groupedHotspots.business.length > 0 && (
+                <section>
+                  <h2 class="text-2xl font-bold text-orange-600 mb-6 flex items-center gap-2 pb-3 border-b border-orange-100">
+                    💼 商业洞察
+                  </h2>
+                  <div class="space-y-6">
+                    {groupedHotspots.business.map((item, i) => (
+                      <div class="group">
+                        <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight">
+                          <a href={item.url} target="_blank" class="hover:text-brand-primary transition-colors flex items-start gap-2">
+                            <span class="text-slate-400 font-normal shrink-0">{i+1}.</span>
+                            {item.title}
+                            <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 text-slate-400" />
+                          </a>
+                        </h3>
+                        {item.summary && <p class="text-slate-600 mb-2 leading-relaxed">{item.summary}</p>}
+                        <Badge variant="secondary" size="sm">{item.source}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+              
+              {groupedHotspots.other.length > 0 && (
+                <section>
+                  <h2 class="text-2xl font-bold text-slate-600 mb-6 flex items-center gap-2 pb-3 border-b border-slate-100">
+                    📰 其他资讯
+                  </h2>
+                  <div class="space-y-6">
+                    {groupedHotspots.other.map((item, i) => (
+                      <div class="group">
+                        <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight">
+                          <a href={item.url} target="_blank" class="hover:text-brand-primary transition-colors flex items-start gap-2">
+                            <span class="text-slate-400 font-normal shrink-0">{i+1}.</span>
+                            {item.title}
+                            <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 text-slate-400" />
+                          </a>
+                        </h3>
+                        {item.summary && <p class="text-slate-600 mb-2 leading-relaxed">{item.summary}</p>}
+                        <Badge variant="secondary" size="sm">{item.source}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          ) : (
+            // 回退到 Markdown 内容
+            <div class="prose prose-slate max-w-none" set:html={parseMarkdown(report.content)} />
+          )}
+        </div>
+      </article>
+    )}
+  </div>
   
-  .hotspot-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
+  <script>
+    import { trackPageView, trackClick } from '../../lib/analytics';
+    
+    trackPageView();
 
-  .hotspot-item h3 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.1rem;
-    line-height: 1.4;
-  }
-
-  .hotspot-item h3 a {
-    color: #111827;
-    text-decoration: none;
-  }
-
-  .hotspot-item h3 a:hover {
-    color: #2563eb;
-    text-decoration: underline;
-  }
-
-  .hotspot-item p {
-    color: #4b5563;
-    margin: 0 0 0.5rem 0;
-    font-size: 0.95rem;
-    line-height: 1.6;
-  }
-
-  .source-badge {
-    display: inline-block;
-    font-size: 0.75rem;
-    color: #6b7280;
-    background: #f3f4f6;
-    padding: 0.125rem 0.5rem;
-    border-radius: 9999px;
-  }
-
-  /* Legacy Markdown Styles */
-  .report-content {
-    line-height: 1.7;
-  }
-  
-  .report-content :global(h3.report-source) {
-    font-size: 1.25rem;
-    color: #1f2937;
-    margin: 2rem 0 1rem 0;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #3b82f6;
-  }
-
-  .report-content :global(.report-item) {
-    padding: 0.625rem 0;
-  }
-  
-  .report-content :global(.report-link) {
-    color: #2563eb;
-    text-decoration: none;
-  }
-
-  .report-content :global(.report-quote) {
-    margin: 0.5rem 0 1.5rem 0;
-    padding: 0.75rem 1rem;
-    background: #f9fafb;
-    border-left: 4px solid #3b82f6;
-    color: #4b5563;
-  }
-
-  @media (max-width: 640px) {
-    .report-body {
-      padding: 1.5rem;
-    }
-  }
-</style>
+    document.addEventListener('click', (e) => {
+      const target = (e.target as HTMLElement).closest('a');
+      if (target && target.href && target.target === '_blank') {
+         trackClick(target.href, undefined, 'daily_report_detail');
+      }
+    });
+  </script>
+</MainLayout>
