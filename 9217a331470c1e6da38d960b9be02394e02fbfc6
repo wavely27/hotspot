@@ -1,0 +1,53 @@
+src/layouts/AdminLayout.astro
+  a9fc3a66915cf7d7 27-28,46-47
+README.md
+  3a57afb53933edc2 64-65
+package.json
+  0b1bbe474f232fd6 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.37",
+  "base_commit_sha": "9217a331470c1e6da38d960b9be02394e02fbfc6",
+  "prompts": {
+    "0b1bbe474f232fd6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3fe646f3bffeGENBcnBiShnJge-243f6045-3657-47e3-a2b1-2eafb042f69f",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "3a57afb53933edc2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3fe646f3bffeGENBcnBiShnJge-d499b741-4006-4e9c-8cd1-c5790052972f",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "a9fc3a66915cf7d7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3fe646f3bffeGENBcnBiShnJge-1fb970f4-0d55-41a5-a2f0-305bedfd506c",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
