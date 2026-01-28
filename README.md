@@ -61,8 +61,8 @@ SUPABASE_ANON_KEY=your_anon_key                 # 用于前端读取
 ## 🛠️ 技术栈
 
 *   **Language**: Python 3.11, TypeScript
-*   **Framework**: Astro 5 (Hybrid Mode), React 19
-*   **UI**: Tailwind CSS, Lucide React
+*   **Framework**: Astro 5 (Static), React 19
+*   **UI**: Tailwind CSS 4, Lucide React, Recharts
 *   **Database**: Supabase
 *   **AI Model**: Google Gemini 2.0 Flash
 *   **CI/CD**: GitHub Actions
