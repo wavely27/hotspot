@@ -1,0 +1,23 @@
+.github/workflows/deploy.yml
+  f15410acbcbfce3c 34-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "c158b5c66c46c272485892b06a40688c1e317a28",
+  "prompts": {
+    "f15410acbcbfce3c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8ca73562-1ec7-41d4-904d-0ebfb37a6efa",
+        "model": "claude-opus-4-5-20251101"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}
