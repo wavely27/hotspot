@@ -31,6 +31,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 确保获取最新的 main 分支代码，而不是 workflow_run 事件引用的旧 commit
+          ref: main
 
       - name: Detect package manager
         id: detect-package-manager
