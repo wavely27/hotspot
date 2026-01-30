@@ -1,0 +1,97 @@
+src/components/TagFeed.astro
+  8a57f78c6d5dc7ea 82-83
+src/pages/reports/[date].astro
+  b33aa870c6752388 284-285
+  31b9f5f9ca7ffc89 184,207,230,253
+src/components/TagFeedList.tsx
+  5c4c3f5568f8205b 95
+scripts/create_analytics_tables.sql
+  b505eef38fb7293e 23
+src/lib/analytics.ts
+  210ec5111dda492f 38,43-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.0.40",
+  "base_commit_sha": "7514a1d15663a93e02e49ca09fdd3d79c0f57a58",
+  "prompts": {
+    "210ec5111dda492f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3f3df4634ffevb4w3W4CmFLGaw-08305aa4-cfa1-458c-92b5-1a34c63c9b95",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 3,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    },
+    "31b9f5f9ca7ffc89": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3f3df4634ffevb4w3W4CmFLGaw-2b2cf635-08e9-4b53-bec3-1c8d7b5798c7",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 4,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "5c4c3f5568f8205b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3f3df4634ffevb4w3W4CmFLGaw-9240faeb-dd0e-427a-9866-b793f284e7e0",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "8a57f78c6d5dc7ea": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3f3df4634ffevb4w3W4CmFLGaw-4db377ca-22e6-41ef-b879-485c5f708833",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 1,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "b33aa870c6752388": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3f3df4634ffevb4w3W4CmFLGaw-891f6c4c-be94-416e-9460-44972b77eba6",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 1,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "b505eef38fb7293e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3f3df4634ffevb4w3W4CmFLGaw-f0692655-f850-42b4-8df6-ffc51a5d52c2",
+        "model": "unknown"
+      },
+      "human_author": "“hongbai” <hongbai@tsign.cn>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
