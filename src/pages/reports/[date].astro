@@ -181,7 +181,7 @@ const title = report ? `AI 热点日报 - ${formatDate(report.report_date)}` : '
                     {groupedHotspots.trending.map((item, i) => (
                       <div class="group">
                         <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight">
-                          <a href={item.url} target="_blank" class="hover:text-brand-primary transition-colors flex items-start gap-2">
+                          <a href={item.url} target="_blank" data-hotspot-id={item.id} class="hover:text-brand-primary transition-colors flex items-start gap-2">
                             <span class="text-slate-400 font-normal shrink-0">{i+1}.</span>
                             {item.title}
                             <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 text-slate-400" />
@@ -204,7 +204,7 @@ const title = report ? `AI 热点日报 - ${formatDate(report.report_date)}` : '
                     {groupedHotspots.tech.map((item, i) => (
                       <div class="group">
                         <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight">
-                          <a href={item.url} target="_blank" class="hover:text-brand-primary transition-colors flex items-start gap-2">
+                          <a href={item.url} target="_blank" data-hotspot-id={item.id} class="hover:text-brand-primary transition-colors flex items-start gap-2">
                             <span class="text-slate-400 font-normal shrink-0">{i+1}.</span>
                             {item.title}
                             <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 text-slate-400" />
@@ -227,7 +227,7 @@ const title = report ? `AI 热点日报 - ${formatDate(report.report_date)}` : '
                     {groupedHotspots.business.map((item, i) => (
                       <div class="group">
                         <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight">
-                          <a href={item.url} target="_blank" class="hover:text-brand-primary transition-colors flex items-start gap-2">
+                          <a href={item.url} target="_blank" data-hotspot-id={item.id} class="hover:text-brand-primary transition-colors flex items-start gap-2">
                             <span class="text-slate-400 font-normal shrink-0">{i+1}.</span>
                             {item.title}
                             <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 text-slate-400" />
@@ -250,7 +250,7 @@ const title = report ? `AI 热点日报 - ${formatDate(report.report_date)}` : '
                     {groupedHotspots.other.map((item, i) => (
                       <div class="group">
                         <h3 class="text-lg font-bold text-slate-900 mb-2 leading-tight">
-                          <a href={item.url} target="_blank" class="hover:text-brand-primary transition-colors flex items-start gap-2">
+                          <a href={item.url} target="_blank" data-hotspot-id={item.id} class="hover:text-brand-primary transition-colors flex items-start gap-2">
                             <span class="text-slate-400 font-normal shrink-0">{i+1}.</span>
                             {item.title}
                             <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1.5 text-slate-400" />
@@ -281,7 +281,8 @@ const title = report ? `AI 热点日报 - ${formatDate(report.report_date)}` : '
     document.addEventListener('click', (e) => {
       const target = (e.target as HTMLElement).closest('a');
       if (target && target.href && target.target === '_blank') {
-         trackClick(target.href, undefined, 'daily_report_detail');
+         const hotspotId = target.getAttribute('data-hotspot-id') || undefined;
+         trackClick(target.href, hotspotId, 'daily_report_detail');
       }
     });
   </script>

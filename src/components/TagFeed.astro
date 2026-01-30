@@ -79,7 +79,8 @@ if (supabase) {
     document.addEventListener('click', (e) => {
       const target = (e.target as HTMLElement).closest('a');
       if (target && target.href && target.target === '_blank') {
-         trackClick(target.href, undefined, 'tag_feed_click');
+         const hotspotId = target.getAttribute('data-hotspot-id') || undefined;
+         trackClick(target.href, hotspotId, 'tag_feed_click');
       }
     });
   </script>

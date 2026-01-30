@@ -35,13 +35,15 @@ export function trackPageView() {
 export function trackClick(url: string, hotspotId?: string, source?: string) {
   if (!supabase) return
 
-  const payload = {
+  const payload: Record<string, string> = {
     url,
-    hotspot_id: hotspotId, // 注意：如果表设置了外键且 hotspotId 为空，可能会报错，视表结构而定
     source: source || window.location.pathname
   }
   
-  // 点击跟踪
+  if (hotspotId) {
+    payload.hotspot_id = hotspotId
+  }
+  
   supabase.from('hotspot_clicks').insert(payload).then(({ error }) => {
     if (error) console.error('Track click failed:', error)
   })

@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at);
 -- 2. 热点点击统计表
 CREATE TABLE IF NOT EXISTS hotspot_clicks (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    hotspot_id UUID NOT NULL,     -- 关联的热点 ID
+    hotspot_id UUID,              -- 关联的热点 ID（可选，部分场景无法获取）
     url TEXT NOT NULL,            -- 点击的目标 URL
     source TEXT,                  -- 来源页面，如 daily_report
     created_at TIMESTAMPTZ DEFAULT NOW()

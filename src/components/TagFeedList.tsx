@@ -92,7 +92,7 @@ export default function TagFeedList({ tag, initialItems }: Props) {
           </div>
           
           <h2 className="text-lg font-bold text-slate-900 mb-2 leading-tight">
-            <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:text-brand-primary transition-colors flex items-start gap-2">
+            <a href={item.url} target="_blank" rel="noopener noreferrer" data-hotspot-id={item.id} className="hover:text-brand-primary transition-colors flex items-start gap-2">
               {item.title}
               <ExternalLink size={16} className="opacity-0 group-hover:opacity-100 transition-opacity mt-1 text-slate-400 shrink-0" />
             </a>
